@@ -448,19 +448,18 @@ input[type="number"] { width: 76px; min-width: 0; }
 }
 @media (max-width: 1000px) { .resultWrap { grid-template-columns: 1fr; align-items: start; } }
 
-/* control bar (like CC options bar) */
-.fileBar {
-  grid-column: 1 / -1;
-  background: var(--panel-2);
-  border: 1px solid var(--border);
-  color: var(--text);
-  border-radius: var(--radius-md);
-  padding: var(--space-4) var(--space-7);
-  display: flex; align-items: center; gap: var(--space-7); font-size: var(--fs-sm);
+/* file info + Change settings sit at the right of the preview tab row */
+.tabInfo {
+  margin-left: auto; align-self: center;
+  display: flex; align-items: center; gap: var(--space-5);
+  min-width: 0; padding-bottom: var(--space-3); font-size: var(--fs-sm);
 }
-.fileBar .name { font-weight: var(--fw-bold); font-size: var(--fs-base); }
-.fileBar .meta { color: var(--muted); }
-.fileBar .right { margin-left: auto; display: flex; gap: var(--space-4); }
+.tabInfo .name {
+  font-weight: var(--fw-bold); color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px;
+}
+.tabInfo .meta { color: var(--muted); white-space: nowrap; }
+@media (max-width: 620px) { .tabInfo .meta { display: none; } .tabInfo .name { max-width: 120px; } }
 
 .summaryBanner {
   grid-column: 1 / -1;

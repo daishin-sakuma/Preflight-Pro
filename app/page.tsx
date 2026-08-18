@@ -698,19 +698,6 @@ export default function Home() {
 
       {phase === 'result' && result && summary && (
         <div className="resultWrap">
-          <div className="fileBar">
-            <span className="name">{result.fileName}</span>
-            <span className="meta">
-              {(result.fileSize / 1024 / 1024).toFixed(2)}MB · {result.pageCount} page{result.pageCount > 1 ? 's' : ''} ·
-              {result.kind === 'pdf' ? ' PDF' : ` ${result.imageInfo?.format.toUpperCase()} image`}
-            </span>
-            <span className="right">
-              <button className="btn ghost small" onClick={() => setPhase('confirm')}>
-                Change settings
-              </button>
-            </span>
-          </div>
-
           <div className={`summaryBanner ${summary.errs ? 'fail' : summary.warns ? 'warn' : 'pass'}`}>
             <span className="sbIcon" aria-hidden="true">
               {summary.errs ? (
@@ -750,6 +737,16 @@ export default function Home() {
             <div className="previewTabs">
               <button className={tab === '3d' ? 'on' : ''} onClick={() => setTab('3d')}>3D preview</button>
               <button className={tab === '2d' ? 'on' : ''} onClick={() => setTab('2d')}>2D proof</button>
+              <div className="tabInfo">
+                <span className="name" title={result.fileName}>{result.fileName}</span>
+                <span className="meta">
+                  {(result.fileSize / 1024 / 1024).toFixed(2)}MB · {result.pageCount} page{result.pageCount > 1 ? 's' : ''} ·
+                  {result.kind === 'pdf' ? ' PDF' : ` ${result.imageInfo?.format.toUpperCase()} image`}
+                </span>
+                <button className="btn ghost small" onClick={() => setPhase('confirm')}>
+                  Change settings
+                </button>
+              </div>
             </div>
             <div className="previewStage">
               {tab === '3d' && paper3d && (

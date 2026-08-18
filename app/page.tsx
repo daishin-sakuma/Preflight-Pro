@@ -109,9 +109,13 @@ export default function Home() {
   }, []);
 
   // Page turning (works in both 2D and 3D; also bound to ← / → keys).
+  // Wraps around: past the last page → first, before the first → last, so a
+  // 2-page front/back can be flipped repeatedly with one arrow.
   const goPage = useCallback((delta: number) => {
     setResult((r) => {
-      if (r) setPageIdx((i) => Math.max(0, Math.min(r.pageCount - 1, i + delta)));
+      if (r && r.pageCount > 1) {
+        setPageIdx((i) => ((i + delta) % r.pageCount + r.pageCount) % r.pageCount);
+      }
       return r;
     });
   }, []);
@@ -617,12 +621,12 @@ export default function Home() {
               )}
               {result.pageCount > 1 && (
                 <>
-                  <button className="pageNav left" disabled={pageIdx === 0}
+                  <button className="pageNav left"
                     onClick={() => goPage(-1)} title="Previous page (←)" aria-label="Previous page">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25"
                       strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
                   </button>
-                  <button className="pageNav right" disabled={pageIdx === result.pageCount - 1}
+                  <button className="pageNav right"
                     onClick={() => goPage(1)} title="Next page (→)" aria-label="Next page">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25"
                       strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>

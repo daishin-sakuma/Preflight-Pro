@@ -27,7 +27,7 @@ const THEME_KEY = 'preflight-pro:theme';
 
 // In-page anchor scroll: offset for the sticky header + gap, eased over ~0.3s.
 const SCROLL_OFFSET = 60; // header (44) + breathing room
-function smoothScrollTo(targetY: number, duration = 1000) {
+function smoothScrollTo(targetY: number, duration = 2000) {
   const reduce = typeof matchMedia !== 'undefined'
     && matchMedia('(prefers-reduced-motion: reduce)').matches;
   // clamp to the actually reachable range so the ease lands exactly on the

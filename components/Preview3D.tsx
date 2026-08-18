@@ -135,7 +135,8 @@ function Rig({ autoRotate, command, wMm, hMm, onFacing, onZoomPct, apiRef }: {
     apiRef.current = {
       zoomIn: () => dolly(1 / 1.3),
       zoomOut: () => dolly(1.3),
-      reset: () => place('reset'),
+      // Fit: keep the currently-viewed page, square it up straight-on, fit size
+      reset: () => place(camera.position.z >= 0 ? 'front' : 'back'),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   });

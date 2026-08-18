@@ -80,6 +80,7 @@ function Rig({ autoRotate, command }: { autoRotate: boolean; command: ViewComman
       autoRotate={autoRotate}
       autoRotateSpeed={2.2}
       enablePan
+      zoomToCursor
       minDistance={4}
       maxDistance={40}
     />

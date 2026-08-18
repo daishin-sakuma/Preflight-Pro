@@ -27,7 +27,7 @@ const THEME_KEY = 'preflight-pro:theme';
 
 // In-page anchor scroll: offset for the sticky header + gap, eased over ~0.3s.
 const SCROLL_OFFSET = 60; // header (44) + breathing room
-function smoothScrollTo(targetY: number, duration = 300) {
+function smoothScrollTo(targetY: number, duration = 650) {
   const reduce = typeof matchMedia !== 'undefined'
     && matchMedia('(prefers-reduced-motion: reduce)').matches;
   const y = Math.max(0, targetY);
@@ -35,7 +35,8 @@ function smoothScrollTo(targetY: number, duration = 300) {
   const start = window.scrollY;
   const change = y - start;
   const t0 = performance.now();
-  const ease = (t: number) => 1 - Math.pow(1 - t, 3); // easeOutCubic
+  // easeInOutCubic — gentle acceleration and deceleration
+  const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
   const step = (now: number) => {
     const p = Math.min(1, (now - t0) / duration);
     window.scrollTo(0, start + change * ease(p));
@@ -274,7 +275,7 @@ export default function Home() {
       if (!el) return;
       e.preventDefault();
       const y = el.getBoundingClientRect().top + window.scrollY - SCROLL_OFFSET;
-      smoothScrollTo(y, 300);
+      smoothScrollTo(y);
       history.replaceState(null, '', `#${id}`);
     };
     document.addEventListener('click', onClick);

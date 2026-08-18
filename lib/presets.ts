@@ -33,4 +33,4 @@ export function paperSizeMm(
 }
 
 export const TAC_CHOICES = [250, 260, 280, 300, 310, 320, 350];
-export const DPI_CHOICES = [200, 250, 300, 350, 400, 600];
+export const DPI_CHOICES = [72, 100, 150, 200, 250, 300, 350, 400, 600];

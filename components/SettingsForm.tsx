@@ -11,6 +11,7 @@ interface Props {
 }
 
 export default function SettingsForm({ settings, onChange: set }: Props) {
+  const isCustomDpi = !DPI_CHOICES.includes(settings.minDpi);
   return (
     <>
       <div className="formRow">
@@ -52,10 +53,23 @@ export default function SettingsForm({ settings, onChange: set }: Props) {
       </div>
       <div className="formRow">
         <label>Required resolution<span className="hint">Color/gray: 300–350dpi</span></label>
-        <select value={settings.minDpi} onChange={(e) => set('minDpi', +e.target.value)}>
+        <select
+          value={isCustomDpi ? 'custom' : String(settings.minDpi)}
+          onChange={(e) => set('minDpi', e.target.value === 'custom' ? 120 : +e.target.value)}>
           {DPI_CHOICES.map((v) => <option key={v} value={v}>{v}dpi</option>)}
+          <option value="custom">Custom…</option>
         </select>
       </div>
+      {isCustomDpi && (
+        <div className="formRow">
+          <label>Custom resolution (dpi)</label>
+          <span className="inline">
+            <input type="number" value={settings.minDpi} min={1} step={1}
+              onChange={(e) => set('minDpi', +e.target.value)} />
+            dpi
+          </span>
+        </div>
+      )}
       <div className="formRow">
         <label>RGB handling</label>
         <select value={settings.requireCmyk ? 'e' : 'w'} onChange={(e) => set('requireCmyk', e.target.value === 'e')}>

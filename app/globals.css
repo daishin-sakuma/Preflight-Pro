@@ -460,12 +460,16 @@ input[type="number"] { width: 76px; min-width: 0; }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px;
 }
 .tabInfo .meta { color: var(--muted); white-space: nowrap; }
-.tabAction {
-  background: none; border: none; padding: 0 var(--space-2);
-  color: var(--muted); font-size: var(--fs-sm); font-weight: var(--fw-medium);
+/* scoped under .previewTabs to beat `.previewTabs button` (tab styling) so it
+   is a plain inline text button, same size as the file meta, just a different colour */
+.previewTabs .tabAction {
+  position: static; top: auto;
+  background: none; border: none; border-radius: 0; padding: 0;
+  color: var(--accent-strong);
+  font-size: var(--fs-sm); font-weight: var(--fw-regular);
   white-space: nowrap; transition: color var(--dur);
 }
-@media (hover: hover) { .tabAction:hover { color: var(--text); } }
+@media (hover: hover) { .previewTabs .tabAction:hover { color: var(--accent); text-decoration: underline; } }
 @media (max-width: 620px) { .tabInfo .meta { display: none; } .tabInfo .name { max-width: 120px; } }
 
 .summaryBanner {

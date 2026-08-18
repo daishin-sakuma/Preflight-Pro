@@ -660,9 +660,20 @@ export default function Home() {
             <div className="previewCtrl">
               {tab === '3d' && (
                 <>
-                  <button className={`btn ghost small ${autoRotate ? 'active' : ''}`}
-                    onClick={() => setAutoRotate((v) => !v)}>
-                    {autoRotate ? '⏸ Stop' : '▶ Spin'}
+                  <button className={`btn ghost small spinToggle ${autoRotate ? 'active' : ''}`}
+                    onClick={() => setAutoRotate((v) => !v)}
+                    title={autoRotate ? 'Stop rotation' : 'Auto-rotate'}>
+                    {autoRotate ? (
+                      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <rect x="7" y="5" width="3.4" height="14" rx="1" />
+                        <rect x="13.6" y="5" width="3.4" height="14" rx="1" />
+                      </svg>
+                    ) : (
+                      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="M8 5.2v13.6a1 1 0 0 0 1.52.85l11-6.8a1 1 0 0 0 0-1.7l-11-6.8A1 1 0 0 0 8 5.2Z" />
+                      </svg>
+                    )}
+                    <span>{autoRotate ? 'Stop' : 'Spin'}</span>
                   </button>
                   <button className="btn ghost small" onClick={() => setCommand((c) => ({ cmd: 'front', n: c.n + 1 }))}>Front</button>
                   <button className="btn ghost small" onClick={() => setCommand((c) => ({ cmd: 'back', n: c.n + 1 }))}>Back</button>

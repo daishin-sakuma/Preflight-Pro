@@ -640,6 +640,8 @@ input[type="number"] { width: 76px; min-width: 0; }
   background: var(--panel-2); flex-wrap: wrap;
 }
 .previewCtrl .sep { width: 1px; height: 20px; background: var(--border-strong); margin: 0 var(--space-2); }
+.spinToggle { display: inline-flex; align-items: center; gap: var(--space-3); }
+.spinToggle svg { width: 12px; height: 12px; display: block; flex: 0 0 12px; }
 .previewCtrl .note { font-size: var(--fs-2xs); color: var(--subtle); margin-left: auto; }
 
 .legend {

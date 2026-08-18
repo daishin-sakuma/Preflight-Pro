@@ -63,8 +63,6 @@ function Paper({ front, back, wMm, hMm }: Pick<Props, 'front' | 'back' | 'wMm' |
   );
 }
 
-// viewing direction for the default (three-quarter) view
-const VIEW_DIR = new THREE.Vector3(3.2, 2.2, 12.5).normalize();
 const MIN_DIST = 4;
 const MAX_DIST = 80;
 
@@ -106,9 +104,9 @@ function Rig({ autoRotate, command, wMm, hMm, onFacing, onZoomPct, apiRef }: {
   const ctrlTarget = () => (controls.current ? controls.current.target.clone() : ORIGIN.clone());
 
   const targetFor = (cmd: ViewCommand['cmd']): THREE.Vector3 => {
-    if (cmd === 'front') return new THREE.Vector3(0, 0, fitDist);
+    // 'reset' (also the default framing) = straight-on front, whole piece centered
     if (cmd === 'back') return new THREE.Vector3(0, 0, -fitDist);
-    return VIEW_DIR.clone().multiplyScalar(fitDist); // reset = 3/4 view
+    return new THREE.Vector3(0, 0, fitDist);
   };
 
   // Smoothly tween camera position AND the orbit target (look-at point). Tweening
@@ -215,7 +213,7 @@ export default function Preview3D({ front, back, wMm, hMm, autoRotate, command, 
   return (
     <div className="preview3dWrap">
       <Canvas
-        camera={{ position: [3.2, 2.2, 12.5], fov: 40 }}
+        camera={{ position: [0, 0, 14], fov: 40 }}
         style={{ width: '100%', height: '100%' }}
         gl={{ antialias: true, preserveDrawingBuffer: true }}
       >

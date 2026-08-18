@@ -686,9 +686,6 @@ export default function Home() {
                     )}
                     <span>{autoRotate ? 'Stop' : 'Spin'}</span>
                   </button>
-                  <button className="btn ghost small" onClick={() => setCommand((c) => ({ cmd: 'front', n: c.n + 1 }))}>Front</button>
-                  <button className="btn ghost small" onClick={() => setCommand((c) => ({ cmd: 'back', n: c.n + 1 }))}>Back</button>
-                  <button className="btn ghost small" onClick={() => setCommand((c) => ({ cmd: 'reset', n: c.n + 1 }))}>Reset</button>
                   <span className="sep" />
                 </>
               )}

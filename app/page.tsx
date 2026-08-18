@@ -82,6 +82,7 @@ export default function Home() {
   const [drag, setDrag] = useState(false);
   const fileRef = useRef<File | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const disposeRef = useRef<(() => void) | null>(null); // releases the previous PDF's retained doc
 
   // preview state
   const [tab, setTab] = useState<'3d' | '2d'>('3d');
@@ -136,6 +137,8 @@ export default function Home() {
     try {
       const { analyzeFile } = await import('@/lib/analyze');
       const r = await analyzeFile(file, s, setProgress);
+      disposeRef.current?.();            // release the previous file's retained PDF
+      disposeRef.current = r.dispose ?? null;
       setResult(r);
       setPageIdx(0);
       setTab('3d');

@@ -43,6 +43,8 @@ export async function analyzeFile(
       renderScale: r.renderScale,
       findings: [],
       notes: r.notes,
+      renderPage: r.renderPage,
+      dispose: r.dispose,
       markers: [
         ...r.content.markers,
         // TAC-over vector fills (limit is a setting, so resolved here)

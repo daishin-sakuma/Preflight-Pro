@@ -29,6 +29,7 @@ export interface OverlayArgs {
   showGuides: boolean;
   showDims: boolean;
   markerKind: MarkerKind | null;
+  scaleOverride?: number;   // px-per-pt of the target canvas (for hi-res re-renders)
 }
 
 // Draws overlays onto `over` (does NOT clear it — the 2D view clears its
@@ -38,7 +39,7 @@ export function renderOverlays(over: HTMLCanvasElement, args: OverlayArgs): void
   const ctx = over.getContext('2d')!;
     const geom = result.pages[pageIdx];
     if (!geom) return;
-    const s = result.renderScale;
+    const s = args.scaleOverride ?? result.renderScale;
     const vb = geom.viewBoxPt ?? geom.mediaBoxPt;
 
     // UI scale for overlay text/lines: canvases now render at ~2200px long edge

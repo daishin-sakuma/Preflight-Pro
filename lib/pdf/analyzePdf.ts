@@ -44,6 +44,8 @@ export interface PdfAnalysis {
   previews: HTMLCanvasElement[];
   renderScale: number;
   notes: string[];
+  renderPage: (pageIdx: number, scale: number) => Promise<HTMLCanvasElement | null>;
+  dispose: () => void;
 }
 
 function pickBox(list: number[][], pageIdx: number): [number, number, number, number] | undefined {
@@ -214,9 +216,29 @@ export async function analyzePdf(
     });
   }
 
-  await doc.destroy();
+  // keep `doc` alive so the 2D view can re-render the current page at higher
+  // resolution on deep zoom (avoids upscaling a fixed bitmap = jagged/blurry).
+  const renderPage = async (pageIdx: number, scale: number): Promise<HTMLCanvasElement | null> => {
+    if (pageIdx < 0 || pageIdx >= pageCount) return null;
+    try {
+      const page = await doc.getPage(pageIdx + 1);
+      const viewport = page.getViewport({ scale });
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.ceil(viewport.width);
+      canvas.height = Math.ceil(viewport.height);
+      const ctx = canvas.getContext('2d')!;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      await page.render({ canvasContext: ctx, viewport }).promise;
+      return canvas;
+    } catch {
+      return null;
+    }
+  };
+  const dispose = () => { doc.destroy().catch(() => {}); };
 
   return {
     pageCount, pages, raw, content, images, tac, previews, renderScale, notes,
+    renderPage, dispose,
   };
 }

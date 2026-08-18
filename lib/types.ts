@@ -147,6 +147,9 @@ export interface AnalysisResult {
   findings: Finding[];
   notes: string[];                 // non-blocking analysis notes
   markers: Marker[];               // all locatable problem spots (2D preview)
+  // re-render a page at an arbitrary scale (px per pt) for crisp deep zoom (PDF only)
+  renderPage?: (pageIdx: number, scale: number) => Promise<HTMLCanvasElement | null>;
+  dispose?: () => void;            // release the retained pdf.js document
 }
 
 // ---- Settings --------------------------------------------------------------

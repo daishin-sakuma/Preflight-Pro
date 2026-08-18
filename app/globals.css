@@ -649,6 +649,9 @@ input[type="number"] { width: 76px; min-width: 0; }
 .spinToggle { display: inline-flex; align-items: center; gap: var(--space-3); }
 .spinToggle svg { width: 12px; height: 12px; display: block; flex: 0 0 12px; }
 .previewCtrl .note { font-size: var(--fs-2xs); color: var(--subtle); margin-left: auto; }
+.markerClear { display: inline-flex; align-items: center; gap: var(--space-3); }
+.markerClear .mcDot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 7px; }
+.markerClear .mcX { font-size: var(--fs-xs); line-height: 1; opacity: 0.75; }
 
 .legend {
   display: flex; gap: var(--space-7); padding: var(--space-4) var(--space-7);

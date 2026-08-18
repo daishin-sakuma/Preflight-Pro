@@ -697,7 +697,9 @@ export default function Home() {
                 <button className="btn ghost small markerClear"
                   style={{ borderColor: MARKER_STYLE[markerKind].color, color: MARKER_STYLE[markerKind].color }}
                   onClick={() => setMarkerKind(null)}>
-                  ◎ Showing “{MARKER_STYLE[markerKind].label}” ✕
+                  <i className="mcDot" style={{ background: MARKER_STYLE[markerKind].color }} />
+                  <span>Showing “{MARKER_STYLE[markerKind].label}”</span>
+                  <span className="mcX" aria-hidden="true">✕</span>
                 </button>
               )}
               {tab === '3d' ? (

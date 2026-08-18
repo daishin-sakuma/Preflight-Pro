@@ -23,6 +23,7 @@ const FORMAT_LABELS: Record<string, string> = {
 
 // Check settings persist across sessions (incl. custom size).
 const SETTINGS_KEY = 'preflight-pro:settings:v1';
+const THEME_KEY = 'preflight-pro:theme';
 
 // Crop a page preview to its trim box → the finished piece for the 3D view.
 function croppedToTrim(result: AnalysisResult, pageIdx: number): { canvas: HTMLCanvasElement; wMm: number; hMm: number } | null {
@@ -150,6 +151,19 @@ export default function Home() {
   const set = <K extends keyof Settings>(k: K, v: Settings[K]) =>
     setSettings((s) => ({ ...s, [k]: v }));
 
+  // ---- theme (dark = default identity / light) ----
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(THEME_KEY) === 'light') setTheme('light');
+    } catch { /* ignore */ }
+  }, []);
+  useEffect(() => {
+    if (theme === 'light') document.documentElement.dataset.theme = 'light';
+    else delete document.documentElement.dataset.theme;
+    try { localStorage.setItem(THEME_KEY, theme); } catch { /* quota */ }
+  }, [theme]);
+
   // ---- settings persistence (localStorage) ----
   useEffect(() => {
     try {
@@ -214,6 +228,13 @@ export default function Home() {
           <span className="mark">Preflight <span className="pro">Pro</span></span>
           <span className="sub">入稿データチェック</span>
         </div>
+        <button
+          className="btn ghost small themeToggle"
+          onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
+          title="テーマ切替"
+        >
+          {theme === 'dark' ? '☀ ライトモード' : '☾ ダークモード'}
+        </button>
       </header>
 
       {phase === 'upload' && (
@@ -442,6 +463,7 @@ export default function Home() {
                   hMm={paper3d.hMm}
                   autoRotate={autoRotate}
                   command={command}
+                  stageColor={theme === 'light' ? '#b9bcc2' : '#454547'}
                 />
               )}
               {tab === '2d' && (

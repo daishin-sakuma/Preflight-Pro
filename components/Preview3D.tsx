@@ -18,6 +18,7 @@ interface Props {
   hMm: number;
   autoRotate: boolean;
   command: ViewCommand;
+  stageColor?: string;   // pasteboard colour (theme-dependent)
 }
 
 function Paper({ front, back, wMm, hMm }: Pick<Props, 'front' | 'back' | 'wMm' | 'hMm'>) {
@@ -87,14 +88,14 @@ function Rig({ autoRotate, command }: { autoRotate: boolean; command: ViewComman
   );
 }
 
-export default function Preview3D({ front, back, wMm, hMm, autoRotate, command }: Props) {
+export default function Preview3D({ front, back, wMm, hMm, autoRotate, command, stageColor = '#454547' }: Props) {
   return (
     <Canvas
       camera={{ position: [3.2, 2.2, 12.5], fov: 40 }}
       style={{ width: '100%', height: '100%' }}
       gl={{ antialias: true, preserveDrawingBuffer: true }}
     >
-      <color attach="background" args={['#454547']} />
+      <color attach="background" args={[stageColor]} />
       <ambientLight intensity={1.15} />
       <directionalLight position={[6, 8, 10]} intensity={1.5} />
       <directionalLight position={[-5, -3, -9]} intensity={0.8} />

@@ -30,10 +30,7 @@ export default function ResultsPanel({ findings, onLocate, activeMarkerKind }: P
 
   const [open, setOpen] = useState<Record<CategoryId, boolean>>(() => {
     const o = {} as Record<CategoryId, boolean>;
-    for (const { cat, items } of cats) {
-      const w = worstSeverity(items);
-      o[cat] = w === 'error' || w === 'warning';
-    }
+    for (const { cat } of cats) o[cat] = true; // all categories open by default
     return o;
   });
 

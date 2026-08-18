@@ -520,9 +520,10 @@ export default function Home() {
             <p>PDF, Adobe Illustrator (.ai), JPEG and PNG — see <a href="#formats">supported file types</a>.</p>
 
             <p className="landingLinks">
-              <a href="https://github.com/daishin-sakuma/Preflight-Pro" target="_blank" rel="noopener noreferrer">
-                View the source on GitHub
-              </a>
+              <span>
+                Created by{' '}
+                <a href="https://fxx.huruike.com" target="_blank" rel="noopener noreferrer">Daishin Sakuma</a>
+              </span>
               <span aria-hidden="true">·</span>
               <span>Share:</span>
               <a href="https://twitter.com/intent/tweet?url=https%3A%2F%2Fpreflight-pro.vercel.app&text=Preflight%20%E2%80%94%20check%20your%20print%20data%20in%20the%20browser"

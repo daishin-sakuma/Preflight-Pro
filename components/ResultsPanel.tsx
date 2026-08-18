@@ -21,9 +21,11 @@ interface Props {
   onLocate?: (finding: Finding) => void;
   // Currently highlighted marker kind (to render the button as active).
   activeMarkerKind?: string | null;
+  // desktop: cap the scroll area to the preview column's height (px)
+  maxHeight?: number;
 }
 
-export default function ResultsPanel({ findings, onLocate, activeMarkerKind }: Props) {
+export default function ResultsPanel({ findings, onLocate, activeMarkerKind, maxHeight }: Props) {
   const cats = CATEGORY_ORDER
     .map((cat) => ({ cat, items: findings.filter((x) => x.category === cat) }))
     .filter((c) => c.items.length > 0);
@@ -36,7 +38,7 @@ export default function ResultsPanel({ findings, onLocate, activeMarkerKind }: P
 
   return (
     <div className="resultsCol">
-      <div className="resultsScroll">
+      <div className="resultsScroll" style={maxHeight ? { maxHeight } : undefined}>
       {cats.map(({ cat, items }, i) => {
         const worst = worstSeverity(items);
         const sorted = [...items].sort((a, b) => SEV_RANK[b.severity] - SEV_RANK[a.severity]);

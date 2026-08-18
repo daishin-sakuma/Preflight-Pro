@@ -444,9 +444,9 @@ input[type="number"] { width: 76px; min-width: 0; }
      as the header→first-card gap — bottom margins collapse through <body>. */
   padding: 0 var(--space-8) var(--space-7);
   display: grid; grid-template-columns: minmax(0, 1fr) 336px; gap: var(--space-6);
-  align-items: stretch;
+  align-items: start;
 }
-@media (max-width: 1000px) { .resultWrap { grid-template-columns: 1fr; align-items: start; } }
+@media (max-width: 1000px) { .resultWrap { grid-template-columns: 1fr; } }
 
 /* file info + Change settings sit at the right of the preview tab row */
 .tabInfo {
@@ -693,16 +693,11 @@ input[type="number"] { width: 76px; min-width: 0; }
 
 /* ---------- properties panel (checks) ---------- */
 .resultsCol { display: flex; flex-direction: column; min-width: 0; }
-.resultsScroll { display: flex; flex-direction: column; gap: var(--space-4); }
-/* on desktop, the results panel matches the preview column height and scrolls
-   on its own (its content is taken out of row sizing via absolute positioning,
-   so the row height is set by the left/preview column). */
-@media (min-width: 1001px) {
-  .resultsCol { position: relative; }
-  .resultsScroll {
-    position: absolute; inset: 0; overflow-y: auto;
-    padding-right: var(--space-2);
-  }
+/* height is capped (to the preview column) via inline maxHeight from JS on
+   desktop, so the panel scrolls on its own; on mobile it flows normally. */
+.resultsScroll {
+  display: flex; flex-direction: column; gap: var(--space-4);
+  overflow-y: auto;
 }
 .catCard {
   background: var(--panel);

@@ -97,6 +97,8 @@ export default function Home() {
   const disposeRef = useRef<(() => void) | null>(null); // releases the previous PDF's retained doc
   const preview2dRef = useRef<Preview2DHandle>(null);
   const preview3dFitRef = useRef<(() => void) | null>(null);
+  const previewColRef = useRef<HTMLDivElement>(null);
+  const [panelMaxH, setPanelMaxH] = useState<number | undefined>(undefined);
   const [scMounted, setScMounted] = useState(false); // shortcuts modal in DOM
   const [scOpen, setScOpen] = useState(false);        // shortcuts modal visible (transition)
   const scTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -132,6 +134,20 @@ export default function Home() {
     setMarkerKind(null);
     setPhase('upload');
   }, []);
+
+  // Match the results panel's scroll height to the preview column (desktop),
+  // so it scrolls on its own instead of stretching the page.
+  useEffect(() => {
+    if (phase !== 'result') return;
+    const el = previewColRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const update = () => setPanelMaxH(window.innerWidth > 1000 ? el.offsetHeight : undefined);
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    window.addEventListener('resize', update);
+    update();
+    return () => { ro.disconnect(); window.removeEventListener('resize', update); };
+  }, [phase, result]);
 
   // Page turning (works in both 2D and 3D; also bound to ← / → keys).
   // Wraps around: past the last page → first, before the first → last, so a
@@ -732,7 +748,7 @@ export default function Home() {
             </span>
           </div>
 
-          <div className="previewCol">
+          <div className="previewCol" ref={previewColRef}>
           <div className="card previewCard">
             <div className="previewTabs">
               <button className={tab === '3d' ? 'on' : ''} onClick={() => setTab('3d')}>3D preview</button>
@@ -883,6 +899,7 @@ export default function Home() {
             findings={result.findings}
             onLocate={onLocate}
             activeMarkerKind={markerKind}
+            maxHeight={panelMaxH}
           />
         </div>
       )}

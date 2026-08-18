@@ -73,6 +73,16 @@ try {
   await page.getByRole('button', { name: '2D校正ビュー' }).click();
   await sleep(800);
   await page.screenshot({ path: 'test/out-bad-2d.png' });
+  // locate a finding's spots on the preview
+  const locate = page.locator('.locateBtn').first();
+  (await locate.count()) > 0 ? ok('該当箇所を表示ボタンあり') : fail('locateBtn が見つからない');
+  if ((await locate.count()) > 0) {
+    await locate.click();
+    await sleep(600);
+    (await page.locator('.markerClear').count()) > 0
+      ? ok('マーカー表示中バッジあり') : fail('markerClear が見つからない');
+    await page.screenshot({ path: 'test/out-bad-locate.png' });
+  }
 
   // ---- good.pdf ----
   await upload('good.pdf');

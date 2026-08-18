@@ -10,6 +10,18 @@ export interface Finding {
   detail: string;        // explanation + how to fix
   pages?: number[];      // 1-based page numbers involved
   count?: number;        // occurrences
+  markerKind?: MarkerKind; // set when the spots are locatable on the 2D preview
+}
+
+// A locatable problem spot on a page (PDF coords, origin bottom-left, pt).
+export type MarkerKind = 'rgb' | 'white-op' | 'tac' | 'rich-black' | 'hairline';
+
+export interface Marker {
+  kind: MarkerKind;
+  page: number;          // 1-based (best effort inside form XObjects)
+  rectPt: { x: number; y: number; w: number; h: number };
+  label?: string;        // chip text, e.g. '380%'
+  point?: boolean;       // approximate point (text position) rather than exact bounds
 }
 
 export type CategoryId =
@@ -51,6 +63,7 @@ export interface CmykUsage {
   inText: boolean;
   page: number;
   isFill: boolean;
+  rectPt?: { x: number; y: number; w: number; h: number }; // first drawn location
 }
 
 export interface PageGeom {
@@ -95,6 +108,7 @@ export interface ContentStats {
   whiteFillWithGs: number;         // white fills drawn while an ExtGState is active (potential white overprint)
   minLineWidthPt: number | null;   // thinnest stroke width seen (pt, approx)
   hairlineCount: number;
+  markers: Marker[];               // locatable spots (rgb / white-op / rich-black / hairline)
 }
 
 export interface TacResult {
@@ -130,6 +144,7 @@ export interface AnalysisResult {
   renderScale: number;             // px per pt of previews
   findings: Finding[];
   notes: string[];                 // non-blocking analysis notes
+  markers: Marker[];               // all locatable problem spots (2D preview)
 }
 
 // ---- Settings --------------------------------------------------------------

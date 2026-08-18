@@ -1,12 +1,21 @@
 'use client';
 
 // 2D proof view: rendered page + guide overlays (bleed / trim / text-safe),
-// TAC heat map, and low-resolution image markers.
+// TAC heat map, low-resolution image markers, and problem-spot markers
+// (RGB / white-overprint / TAC-over / rich-black text / hairline).
 
 import { useEffect, useRef } from 'react';
-import type { AnalysisResult, Settings } from '@/lib/types';
+import type { AnalysisResult, MarkerKind, Settings } from '@/lib/types';
 import { PT_PER_MM } from '@/lib/types';
 import { paperSizeMm } from '@/lib/presets';
+
+export const MARKER_STYLE: Record<MarkerKind, { color: string; label: string }> = {
+  rgb: { color: '#ff9f43', label: 'RGB' },
+  'white-op': { color: '#ff4fd8', label: '白ノセ疑い' },
+  tac: { color: '#a78bfa', label: 'インキ量超過' },
+  'rich-black': { color: '#facc15', label: 'リッチブラック文字' },
+  hairline: { color: '#38bdf8', label: '極細線' },
+};
 
 interface Props {
   result: AnalysisResult;
@@ -14,9 +23,10 @@ interface Props {
   pageIdx: number;
   showTac: boolean;
   showGuides: boolean;
+  markerKind: MarkerKind | null;   // active problem-spot overlay
 }
 
-export default function Preview2D({ result, settings, pageIdx, showTac, showGuides }: Props) {
+export default function Preview2D({ result, settings, pageIdx, showTac, showGuides, markerKind }: Props) {
   const baseRef = useRef<HTMLCanvasElement>(null);
   const overRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -119,7 +129,40 @@ export default function Preview2D({ result, settings, pageIdx, showTac, showGuid
         ctx.fillText(label, x + 5, Math.max(13, y - 5));
       }
     }
-  }, [result, settings, pageIdx, showTac, showGuides]);
+
+    // ---- problem-spot markers (該当箇所の表示) ----
+    if (markerKind) {
+      const style = MARKER_STYLE[markerKind];
+      const spots = (result.markers ?? []).filter(
+        (m) => m.kind === markerKind && m.page === pageIdx + 1,
+      );
+      for (const m of spots) {
+        const [x, yBottom] = toPx(m.rectPt.x, m.rectPt.y);
+        const wpx = Math.max(m.rectPt.w * s, 6);
+        const hpx = Math.max(m.rectPt.h * s, 6);
+        const y = yBottom - hpx;
+        // dim everything except a halo? keep simple: strong outlined rect + label
+        ctx.save();
+        ctx.strokeStyle = style.color;
+        ctx.lineWidth = 3;
+        ctx.setLineDash(m.point ? [4, 4] : []);
+        ctx.strokeRect(x, y, wpx, hpx);
+        ctx.setLineDash([]);
+        // corner tick for visibility on busy artwork
+        ctx.fillStyle = style.color;
+        ctx.beginPath();
+        ctx.arc(x, y, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+        const label = m.label ?? style.label;
+        ctx.font = 'bold 12px sans-serif';
+        const tw = ctx.measureText(label).width + 10;
+        ctx.fillRect(x, Math.max(0, y - 18), tw, 18);
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillText(label, x + 5, Math.max(13, y - 5));
+        ctx.restore();
+      }
+    }
+  }, [result, settings, pageIdx, showTac, showGuides, markerKind]);
 
   return (
     <div className="stage2d" ref={wrapRef}>

@@ -27,7 +27,9 @@ function makeResult(kind, raw, content, pagesGeom, extra = {}) {
     pageCount: pagesGeom.length, pages: pagesGeom,
     scan: raw?.scan, content,
     images: [], tac: [], previews: [], renderScale: 1,
-    findings: [], notes: [], ...extra,
+    findings: [], notes: [],
+    markers: content?.markers ?? [],
+    ...extra,
   };
 }
 
@@ -58,6 +60,20 @@ function geomFromBoxes(raw, wPt, hPt) {
   expect(content.hairlineCount > 0, 'bad.pdf: ヘアライン(0.1pt)検出');
   expect(content.whiteFillWithGs > 0, 'bad.pdf: 白塗り+gs(白ノセ疑い)検出');
 
+  // ---- location markers (該当箇所) ----
+  const rgbM = content.markers.filter((m) => m.kind === 'rgb');
+  expect(rgbM.length >= 1 &&
+    Math.abs(rgbM[0].rectPt.x - 50) < 1 && Math.abs(rgbM[0].rectPt.y - 600) < 1 &&
+    Math.abs(rgbM[0].rectPt.w - 200) < 1 && Math.abs(rgbM[0].rectPt.h - 100) < 1,
+    `bad.pdf: RGBマーカー位置=(50,600,200,100) (got ${JSON.stringify(rgbM[0]?.rectPt)})`);
+  const woM = content.markers.filter((m) => m.kind === 'white-op');
+  expect(woM.length >= 1 && Math.abs(woM[0].rectPt.x - 300) < 1 && Math.abs(woM[0].rectPt.y - 600) < 1,
+    `bad.pdf: 白ノセマーカー位置=(300,600) (got ${JSON.stringify(woM[0]?.rectPt)})`);
+  expect(content.markers.some((m) => m.kind === 'hairline'), 'bad.pdf: 細線マーカーあり');
+  const tac400 = content.cmykFills.find((c) => c.tac >= 399);
+  expect(!!tac400?.rectPt && Math.abs(tac400.rectPt.x - 50) < 1 && Math.abs(tac400.rectPt.y - 450) < 1,
+    `bad.pdf: 400%ベタの位置記録=(50,450) (got ${JSON.stringify(tac400?.rectPt)})`);
+
   const res = makeResult('pdf', raw, content, geomFromBoxes(raw, 595.28, 841.89));
   const findings = runChecks(res, DEFAULT_SETTINGS);
   const ids = Object.fromEntries(findings.map((x) => [x.id, x.severity]));
@@ -68,6 +84,10 @@ function geomFromBoxes(raw, wPt, hPt) {
   expect(ids['white-op'] === 'error', 'checks: 白ノセ疑い=エラー');
   expect(ids['hairline'] === 'warning', 'checks: ヘアライン=注意');
   expect(ids['trim-missing'] === 'error', 'checks: 塗り足しなし(原寸ジャスト)=エラー');
+  const byId = Object.fromEntries(findings.map((x) => [x.id, x]));
+  expect(byId['rgb'].markerKind === 'rgb', 'checks: RGB→マーカー紐付け');
+  expect(byId['white-op'].markerKind === 'white-op', 'checks: 白ノセ→マーカー紐付け');
+  expect(byId['hairline'].markerKind === 'hairline', 'checks: 細線→マーカー紐付け');
 }
 
 // ---------------- good.pdf ----------------

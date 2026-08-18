@@ -16,6 +16,12 @@ export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
   const out: Finding[] = [];
   const paper = paperSizeMm(s.paperId, s.customWmm, s.customHmm, s.landscape);
 
+  // marker helpers: link findings to locatable spots on the 2D preview
+  const mk = (kind: NonNullable<Finding['markerKind']>) =>
+    a.markers?.some((m) => m.kind === kind) ? kind : undefined;
+  const mkPages = (kind: string) =>
+    [...new Set((a.markers ?? []).filter((m) => m.kind === kind).map((m) => m.page))].sort((x, y) => x - y);
+
   // =====================================================================
   // 1. 塗り足し・仕上がりサイズ
   // =====================================================================
@@ -122,7 +128,8 @@ export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
       if (a.scan.hasDeviceRGB) srcs.push('DeviceRGB色空間');
       if (a.scan.hasCalRGB) srcs.push('CalRGB色空間');
       out.push(f('rgb', 'color', sev, 'RGBカラーが含まれています',
-        `${srcs.join('、')} を検出しました。印刷はCMYKで行われるため、RGBのままでは印刷所側の自動変換で色味が大きく変わる恐れがあります。CMYKに変換して再入稿してください。`));
+        `${srcs.join('、')} を検出しました。印刷はCMYKで行われるため、RGBのままでは印刷所側の自動変換で色味が大きく変わる恐れがあります。CMYKに変換して再入稿してください。`,
+        { markerKind: mk('rgb'), pages: mkPages('rgb').length ? mkPages('rgb') : undefined }));
     } else if (a.scan.hasDeviceCMYK || a.scan.iccCmykLikely || a.content.cmykFills.length > 0) {
       const icc = a.scan.iccCmykLikely ? ' (ICCベースCMYK色空間)' : '';
       out.push(f('rgb', 'color', 'ok', 'CMYKカラーで作成されています',
@@ -189,7 +196,7 @@ export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
       const worst = over.reduce((x, y) => (x.tac > y.tac ? x : y));
       out.push(f('tac-vector', 'ink', 'error', `総インキ量 ${s.tacLimit}% 超過`,
         `上限${s.tacLimit}%を超えるカラー指定が${over.length}色あります (最大 ${Math.round(worst.tac)}%: C${Math.round(worst.c * 100)} M${Math.round(worst.m * 100)} Y${Math.round(worst.y * 100)} K${Math.round(worst.k * 100)})。乾燥不良・裏移りの原因になるため、合計${s.tacLimit}%以下に調整してください。`,
-        { count: over.length }));
+        { count: over.length, markerKind: mk('tac'), pages: mkPages('tac').length ? mkPages('tac') : undefined }));
     } else if (a.content.cmykFills.length > 0 && reg4.length === 0) {
       out.push(f('tac-vector', 'ink', 'ok', `総インキ量 (ベクター) ${s.tacLimit}%以内`,
         `検出したCMYK指定 ${a.content.cmykFills.length}色 はすべて上限内です。`));
@@ -202,7 +209,7 @@ export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
     if (a.content.richBlackText.length > 0) {
       out.push(f('rich-black-text', 'ink', 'warning', '文字へのリッチブラック使用',
         `テキストに3色以上を重ねた黒 (リッチブラック) が使われています。小さな文字では版ズレで輪郭がにじみます。スミ文字はK100%単色を推奨します。`,
-        { count: a.content.richBlackText.length }));
+        { count: a.content.richBlackText.length, markerKind: mk('rich-black') }));
     }
 
     // pixel-based approximate TAC (photos etc.)
@@ -217,7 +224,8 @@ export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
     // overprint
     if (a.content.whiteFillWithGs > 0) {
       out.push(f('white-op', 'ink', 'error', '白オブジェクトのオーバープリント (白ノセ) の疑い',
-        `オーバープリント設定が有効な文書内で、白い塗りオブジェクトを${a.content.whiteFillWithGs}件検出しました。白にノセが設定されていると、その部分は印刷時に消えます (画面では見えるため事故が多発するポイントです)。オーバープリントを解除してください。`));
+        `オーバープリント設定が有効な文書内で、白い塗りオブジェクトを${a.content.whiteFillWithGs}件検出しました。白にノセが設定されていると、その部分は印刷時に消えます (画面では見えるため事故が多発するポイントです)。オーバープリントを解除してください。`,
+        { markerKind: mk('white-op'), pages: mkPages('white-op').length ? mkPages('white-op') : undefined }));
     } else if (a.scan.overprintTrue) {
       out.push(f('overprint', 'ink', 'warning', 'オーバープリント (ノセ) 設定あり',
         'オーバープリント指定が含まれています。意図したノセ (K100文字のノセ等) であれば問題ありませんが、意図しない場合は「オーバープリントプレビュー」で確認してください。印刷所によっては自動でK100のみノセ処理されます。'));
@@ -304,7 +312,7 @@ export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
     if (a.content.hairlineCount > 0) {
       out.push(f('hairline', 'other', 'warning', '極細線 (ヘアライン)',
         `線幅0.25pt未満の罫線を${a.content.hairlineCount}箇所検出しました。印刷で消える・かすれる恐れがあります。0.25pt (約0.09mm) 以上にしてください。`,
-        { count: a.content.hairlineCount }));
+        { count: a.content.hairlineCount, markerKind: mk('hairline') }));
     }
     if (a.scan.pdfVersion) {
       const v = parseFloat(a.scan.pdfVersion);

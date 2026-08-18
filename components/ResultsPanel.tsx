@@ -15,7 +15,15 @@ export function worstSeverity(items: Finding[]): Severity {
   );
 }
 
-export default function ResultsPanel({ findings }: { findings: Finding[] }) {
+interface Props {
+  findings: Finding[];
+  // Called when the user asks to see a finding's spots on the 2D preview.
+  onLocate?: (finding: Finding) => void;
+  // Currently highlighted marker kind (to render the button as active).
+  activeMarkerKind?: string | null;
+}
+
+export default function ResultsPanel({ findings, onLocate, activeMarkerKind }: Props) {
   const cats = CATEGORY_ORDER
     .map((cat) => ({ cat, items: findings.filter((x) => x.category === cat) }))
     .filter((c) => c.items.length > 0);
@@ -54,6 +62,16 @@ export default function ResultsPanel({ findings }: { findings: Finding[] }) {
                     <div className="fDetail">{x.detail}</div>
                     {x.pages && x.pages.length > 0 && (
                       <div className="fPages">該当ページ: {x.pages.join(', ')}</div>
+                    )}
+                    {x.markerKind && onLocate && (
+                      <div className="fLocate">
+                        <button
+                          className={`locateBtn ${activeMarkerKind === x.markerKind ? 'on' : ''}`}
+                          onClick={() => onLocate(x)}
+                        >
+                          ◎ 該当箇所を表示
+                        </button>
+                      </div>
                     )}
                   </div>
                 ))}

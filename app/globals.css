@@ -360,6 +360,19 @@ input[type="number"] { width: 76px; min-width: 0; }
 .dot.error { background: var(--err); } .dot.info { background: var(--info); }
 .finding .fDetail { font-size: 11.5px; color: var(--muted); margin-top: 3px; padding-left: 15px; line-height: 1.7; }
 .finding .fPages { font-size: 10.5px; color: var(--subtle); padding-left: 15px; margin-top: 2px; }
+.finding .fLocate { padding-left: 15px; margin-top: 6px; }
+.locateBtn {
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--accent-strong);
+  border-radius: var(--radius-sm);
+  padding: 3px 11px;
+  font-size: 11px;
+  font-weight: 600;
+  transition: background .12s, border-color .12s;
+}
+.locateBtn:hover { background: var(--accent-dim); border-color: var(--accent); }
+.locateBtn.on { background: var(--accent-dim); border-color: var(--accent); }
 
 .footerNote {
   grid-column: 1 / -1; font-size: 10.5px; color: var(--subtle);

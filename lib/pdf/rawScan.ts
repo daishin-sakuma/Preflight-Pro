@@ -13,7 +13,9 @@ export interface CsInfo { kind: 'cmyk' | 'rgb' | 'gray' | 'sep' | 'other' }
 
 export interface RawScanResult {
   scan: PdfScan;
-  contentStreams: string[];   // decoded text of likely content streams
+  // decoded text of likely content streams, with best-effort page attribution
+  // (via the owning object number matched against page /Contents refs)
+  contentStreams: { text: string; page: number }[];
   corpus: string;             // raw text + all inflated stream text
   csNames: Record<string, CsInfo>; // colorspace resource name (e.g. CS0) -> kind
   gradientCmyk: { c: number; m: number; y: number; k: number }[]; // Type-2 fn stops
@@ -49,7 +51,7 @@ function parseBoxes(corpus: string, key: string): number[][] {
 export function rawScanPdf(bytes: Uint8Array): RawScanResult {
   const raw = td.decode(bytes);
   const inflatedParts: string[] = [];
-  const contentStreams: string[] = [];
+  const rawStreams: { text: string; objNum: number }[] = [];
 
   // Walk every stream ... endstream span.
   let idx = 0;
@@ -63,6 +65,13 @@ export function rawScanPdf(bytes: Uint8Array): RawScanResult {
     const e = raw.indexOf('endstream', dataStart);
     if (e === -1) break;
     idx = e + 9;
+    // owning object number: nearest `N 0 obj` before the stream keyword
+    let objNum = 0;
+    {
+      const win = raw.slice(Math.max(0, s - 400), s);
+      const ms = [...win.matchAll(/(\d+)\s+\d+\s+obj\b/g)];
+      if (ms.length) objNum = +ms[ms.length - 1][1];
+    }
     // trim the EOL between stream data and `endstream` (pako rejects trailing bytes)
     let dataEnd = e;
     while (dataEnd > dataStart && '\r\n \t'.includes(raw[dataEnd - 1])) dataEnd--;
@@ -79,12 +88,39 @@ export function rawScanPdf(bytes: Uint8Array): RawScanResult {
     if (text && printableRatio(text) > 0.7) {
       inflatedParts.push(text);
       if (CONTENT_RE.test(text.slice(0, 4000)) || CONTENT_RE.test(text)) {
-        contentStreams.push(text);
+        rawStreams.push({ text, objNum });
       }
     }
   }
 
   const corpus = raw + '\n' + inflatedParts.join('\n');
+
+  // ---- page attribution: /Contents refs in page-dict order -> obj -> page ----
+  const objToPage = new Map<number, number>();
+  {
+    let pageNo = 0;
+    const re = /\/Type\s*\/Page\b(?!s)/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(corpus)) !== null) {
+      pageNo++;
+      const win = corpus.slice(m.index, m.index + 900);
+      const single = win.match(/\/Contents\s+(\d+)\s+\d+\s+R/);
+      if (single) {
+        if (!objToPage.has(+single[1])) objToPage.set(+single[1], pageNo);
+        continue;
+      }
+      const arr = win.match(/\/Contents\s*\[([^\]]*)\]/);
+      if (arr) {
+        for (const r of arr[1].matchAll(/(\d+)\s+\d+\s+R/g)) {
+          if (!objToPage.has(+r[1])) objToPage.set(+r[1], pageNo);
+        }
+      }
+    }
+  }
+  const contentStreams = rawStreams.map((s) => ({
+    text: s.text,
+    page: objToPage.get(s.objNum) ?? 1,
+  }));
 
   // ---- object map (top-level `N 0 obj ... endobj`, incl. inflated ObjStm-less
   // bodies present in corpus) for resolving indirect colorspace references ----

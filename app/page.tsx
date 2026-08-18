@@ -2,11 +2,11 @@
 
 import { useCallback, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import type { AnalysisResult, Settings } from '@/lib/types';
+import type { AnalysisResult, Finding, MarkerKind, Settings } from '@/lib/types';
 import { DEFAULT_SETTINGS, MM_PER_PT } from '@/lib/types';
 import { paperSizeMm } from '@/lib/presets';
 import ResultsPanel, { worstSeverity } from '@/components/ResultsPanel';
-import Preview2D from '@/components/Preview2D';
+import Preview2D, { MARKER_STYLE } from '@/components/Preview2D';
 import SettingsForm from '@/components/SettingsForm';
 import type { ViewCommand } from '@/components/Preview3D';
 
@@ -60,12 +60,28 @@ export default function Home() {
   const [pageIdx, setPageIdx] = useState(0);
   const [showTac, setShowTac] = useState(false);
   const [showGuides, setShowGuides] = useState(true);
+  const [markerKind, setMarkerKind] = useState<MarkerKind | null>(null);
   const [autoRotate, setAutoRotate] = useState(false);
   const [command, setCommand] = useState<ViewCommand>({ cmd: 'reset', n: 0 });
+
+  // Locate a finding's spots: jump to the 2D view (and its first page).
+  const onLocate = useCallback((f: Finding) => {
+    if (!f.markerKind) return;
+    setMarkerKind((cur) => (cur === f.markerKind ? null : f.markerKind!));
+    setTab('2d');
+    setResult((r) => {
+      if (r) {
+        const first = r.markers.find((m) => m.kind === f.markerKind);
+        if (first && first.page - 1 < r.previews.length) setPageIdx(first.page - 1);
+      }
+      return r;
+    });
+  }, []);
 
   const runAnalysis = useCallback(async (file: File, s: Settings) => {
     fileRef.current = file;
     setPhase('analyzing');
+    setMarkerKind(null);
     setProgress('ファイルを読み込み中…');
     try {
       const { analyzeFile } = await import('@/lib/analyze');
@@ -281,6 +297,7 @@ export default function Home() {
                   pageIdx={pageIdx}
                   showTac={showTac}
                   showGuides={showGuides}
+                  markerKind={markerKind}
                 />
               )}
             </div>
@@ -319,6 +336,13 @@ export default function Home() {
                     onClick={() => setShowTac((v) => !v)}>
                     インキ量 ({settings.tacLimit}%超を表示)
                   </button>
+                  {markerKind && (
+                    <button className="btn ghost small markerClear"
+                      style={{ borderColor: MARKER_STYLE[markerKind].color, color: MARKER_STYLE[markerKind].color }}
+                      onClick={() => setMarkerKind(null)}>
+                      ◎ {MARKER_STYLE[markerKind].label} の該当箇所を表示中 ✕
+                    </button>
+                  )}
                 </>
               )}
             </div>
@@ -329,11 +353,21 @@ export default function Home() {
                 <span className="key"><span className="swatch" style={{ border: '2px dashed #0d9488', background: 'transparent' }} />文字安全域 ({settings.safeMarginMm}mm内側)</span>
                 <span className="key"><span className="swatch" style={{ border: '2px solid #dc2626', background: 'transparent' }} />低解像度画像</span>
                 {showTac && <span className="key"><span className="swatch" style={{ background: 'rgba(255,40,40,.75)' }} />総インキ量{settings.tacLimit}%超 (推定)</span>}
+                {markerKind && (
+                  <span className="key">
+                    <span className="swatch" style={{ border: `2.5px solid ${MARKER_STYLE[markerKind].color}`, background: 'transparent' }} />
+                    {MARKER_STYLE[markerKind].label} の該当箇所 (概略位置)
+                  </span>
+                )}
               </div>
             )}
           </div>
 
-          <ResultsPanel findings={result.findings} />
+          <ResultsPanel
+            findings={result.findings}
+            onLocate={onLocate}
+            activeMarkerKind={markerKind}
+          />
 
           <div className="footerNote">
             ※ 本ツールの判定は入稿前のセルフチェックを目的とした解析であり、印刷所の正式なデータチェックを代替するものではありません。

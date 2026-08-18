@@ -43,6 +43,18 @@ export async function analyzeFile(
       renderScale: r.renderScale,
       findings: [],
       notes: r.notes,
+      markers: [
+        ...r.content.markers,
+        // TAC-over vector fills (limit is a setting, so resolved here)
+        ...r.content.cmykFills
+          .filter((c) => c.rectPt && c.tac > settings.tacLimit + 0.5)
+          .map((c) => ({
+            kind: 'tac' as const,
+            page: c.page || 1,
+            rectPt: c.rectPt!,
+            label: `${Math.round(c.tac)}%`,
+          })),
+      ],
     };
     if (name.endsWith('.ai')) {
       result.notes.push('Illustrator(.ai)ファイルをPDF互換データとして解析しました。');
@@ -103,6 +115,7 @@ export async function analyzeFile(
     renderScale: canvas.width / wPt,
     findings: [],
     notes: [],
+    markers: [],
   };
   result.findings = runChecks(result, settings);
   return result;

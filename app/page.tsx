@@ -95,6 +95,7 @@ export default function Home() {
   const [markerKind, setMarkerKind] = useState<MarkerKind | null>(null);
   const [autoRotate, setAutoRotate] = useState(false);
   const [command, setCommand] = useState<ViewCommand>({ cmd: 'reset', n: 0 });
+  const [facing3d, setFacing3d] = useState<'front' | 'back'>('front'); // which face the 3D camera sees
 
   // Page turning (works in both 2D and 3D; also bound to ← / → keys).
   const goPage = useCallback((delta: number) => {
@@ -290,13 +291,17 @@ export default function Home() {
       ? compositedFullPage(result, settings, pageIdx, overlayOpts)
       : croppedToTrim(result, pageIdx);
   }, [result, pageIdx, overlaysOn, overlayOpts, settings]);
-  const back3d = useMemo(() => {
+  // the page shown on the back face of the 3D sheet (front/back are paired)
+  const backPageIdx = useMemo(() => {
     if (!result || result.pageCount < 2) return null;
-    const other = pageIdx === 0 ? 1 : pageIdx - 1 >= 0 ? pageIdx + (pageIdx % 2 === 0 ? 1 : -1) : null;
-    if (other === null || other >= result.previews.length) return null;
-    if (overlaysOn) return compositedFullPage(result, settings, other, overlayOpts)?.canvas ?? null;
-    return croppedToTrim(result, other)?.canvas ?? null;
-  }, [result, pageIdx, overlaysOn, overlayOpts, settings]);
+    const other = pageIdx === 0 ? 1 : pageIdx + (pageIdx % 2 === 0 ? 1 : -1);
+    return other >= 0 && other < result.previews.length ? other : null;
+  }, [result, pageIdx]);
+  const back3d = useMemo(() => {
+    if (!result || backPageIdx === null) return null;
+    if (overlaysOn) return compositedFullPage(result, settings, backPageIdx, overlayOpts)?.canvas ?? null;
+    return croppedToTrim(result, backPageIdx)?.canvas ?? null;
+  }, [result, backPageIdx, overlaysOn, overlayOpts, settings]);
 
   return (
     <>
@@ -594,6 +599,7 @@ export default function Home() {
                   autoRotate={autoRotate}
                   command={command}
                   stageColor={theme === 'light' ? '#b9bcc2' : '#454547'}
+                  onFacing={setFacing3d}
                 />
               )}
               {tab === '2d' && (
@@ -622,9 +628,15 @@ export default function Home() {
                       strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
                   </button>
                   <div className="pageBadge">
-                    {result.pageCount === 2
-                      ? (pageIdx === 0 ? 'Front' : 'Back')
-                      : `Page ${pageIdx + 1} / ${result.pageCount}`}
+                    {(() => {
+                      // in 3D, follow which face the camera currently sees
+                      const viewingBack = tab === '3d' && facing3d === 'back';
+                      if (viewingBack && backPageIdx === null) return 'Blank back';
+                      const idx = viewingBack && backPageIdx !== null ? backPageIdx : pageIdx;
+                      return result.pageCount === 2
+                        ? (idx === 0 ? 'Front' : 'Back')
+                        : `Page ${idx + 1} / ${result.pageCount}`;
+                    })()}
                   </div>
                 </>
               )}

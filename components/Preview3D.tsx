@@ -5,7 +5,7 @@
 
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { Canvas, useThree } from '@react-three/fiber';
+import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 
@@ -19,6 +19,7 @@ interface Props {
   autoRotate: boolean;
   command: ViewCommand;
   stageColor?: string;   // pasteboard colour (theme-dependent)
+  onFacing?: (facing: 'front' | 'back') => void; // which face is toward the camera
 }
 
 function Paper({ front, back, wMm, hMm }: Pick<Props, 'front' | 'back' | 'wMm' | 'hMm'>) {
@@ -64,11 +65,23 @@ function Paper({ front, back, wMm, hMm }: Pick<Props, 'front' | 'back' | 'wMm' |
 // viewing direction for the default (three-quarter) view
 const VIEW_DIR = new THREE.Vector3(3.2, 2.2, 12.5).normalize();
 
-function Rig({ autoRotate, command, wMm, hMm }: {
+function Rig({ autoRotate, command, wMm, hMm, onFacing }: {
   autoRotate: boolean; command: ViewCommand; wMm: number; hMm: number;
+  onFacing?: (facing: 'front' | 'back') => void;
 }) {
   const { camera, size } = useThree();
   const controls = useRef<OrbitControlsImpl>(null);
+  const lastFacing = useRef<'front' | 'back' | null>(null);
+
+  // report which face points at the camera (front normal is +z); updates live
+  // while dragging / auto-rotating so the page indicator can follow.
+  useFrame(() => {
+    const facing = camera.position.z >= 0 ? 'front' : 'back';
+    if (facing !== lastFacing.current) {
+      lastFacing.current = facing;
+      onFacing?.(facing);
+    }
+  });
 
   // scene units of the sheet (mirrors <Paper/>: long edge = 10 units)
   const long = Math.max(wMm, hMm);
@@ -116,7 +129,7 @@ function Rig({ autoRotate, command, wMm, hMm }: {
   );
 }
 
-export default function Preview3D({ front, back, wMm, hMm, autoRotate, command, stageColor = '#454547' }: Props) {
+export default function Preview3D({ front, back, wMm, hMm, autoRotate, command, stageColor = '#454547', onFacing }: Props) {
   return (
     <Canvas
       camera={{ position: [3.2, 2.2, 12.5], fov: 40 }}
@@ -128,7 +141,7 @@ export default function Preview3D({ front, back, wMm, hMm, autoRotate, command, 
       <directionalLight position={[6, 8, 10]} intensity={1.5} />
       <directionalLight position={[-5, -3, -9]} intensity={0.8} />
       <Paper front={front} back={back} wMm={wMm} hMm={hMm} />
-      <Rig autoRotate={autoRotate} command={command} wMm={wMm} hMm={hMm} />
+      <Rig autoRotate={autoRotate} command={command} wMm={wMm} hMm={hMm} onFacing={onFacing} />
     </Canvas>
   );
 }

@@ -26,9 +26,11 @@ export default function SettingsForm({ settings, onChange: set }: Props) {
           <label>Custom size (mm)</label>
           <span className="inline">
             <input type="number" value={settings.customWmm} min={10}
+              onFocus={(e) => e.currentTarget.select()}
               onChange={(e) => set('customWmm', +e.target.value)} />
             ×
             <input type="number" value={settings.customHmm} min={10}
+              onFocus={(e) => e.currentTarget.select()}
               onChange={(e) => set('customHmm', +e.target.value)} />
           </span>
         </div>
@@ -60,6 +62,7 @@ export default function SettingsForm({ settings, onChange: set }: Props) {
           <label>Custom ink limit (%)</label>
           <span className="inline">
             <input type="number" value={settings.tacLimit} min={1} max={400} step={1}
+              onFocus={(e) => e.currentTarget.select()}
               onChange={(e) => set('tacLimit', +e.target.value)} />
             %
           </span>
@@ -79,6 +82,7 @@ export default function SettingsForm({ settings, onChange: set }: Props) {
           <label>Custom resolution (dpi)</label>
           <span className="inline">
             <input type="number" value={settings.minDpi} min={1} step={1}
+              onFocus={(e) => e.currentTarget.select()}
               onChange={(e) => set('minDpi', +e.target.value)} />
             dpi
           </span>

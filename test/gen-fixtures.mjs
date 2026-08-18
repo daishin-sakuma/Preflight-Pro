@@ -38,15 +38,17 @@ function buildPdf(objects, trailerExtra = '') {
     '0.95 0.95 0.95 0 k', '50 300 200 100 re f',       // 3-color heavy
     '0 0 0 1 K', '0.1 w', '50 250 m 250 250 l S',      // hairline
     '/GS0 gs', '0 0 0 0 k', '300 600 100 100 re f',    // white fill + overprint gs
+    'BT /F1 24 Tf 100 700 Td (Hello) Tj ET',           // non-embedded font text
   ].join('\n');
 
   const objs = [
     '<< /Type /Catalog /Pages 2 0 R >>',
     '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
     `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Contents 4 0 R ` +
-    '/Resources << /ExtGState << /GS0 5 0 R >> >> >>',
+    '/Resources << /ExtGState << /GS0 5 0 R >> /Font << /F1 6 0 R >> >> >>',
     `<< /Length ${content.length} >>\nstream\n${content}\nendstream`,
     '<< /Type /ExtGState /OP true /op true /OPM 1 >>',
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>', // standard-14: not embedded
   ];
   writeFileSync(join(dir, 'bad.pdf'), buildPdf(objs));
 }

@@ -285,7 +285,7 @@ export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
     } else {
       out.push(f('fonts', 'font', 'error', 'フォント未埋め込み',
         `埋め込まれていないフォントがあります: ${a.scan.fontsNotEmbedded.slice(0, 5).join(', ')}${a.scan.fontsNotEmbedded.length > 5 ? ' 他' : ''}。印刷所の環境で文字化け・別書体に置き換わります。フォントを埋め込むかアウトライン化してください。`,
-        { count: a.scan.fontsNotEmbedded.length }));
+        { count: a.scan.fontsNotEmbedded.length, markerKind: mk('font'), pages: mkPages('font').length ? mkPages('font') : undefined }));
     }
   }
 

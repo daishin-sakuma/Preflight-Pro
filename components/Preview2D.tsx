@@ -15,6 +15,7 @@ export const MARKER_STYLE: Record<MarkerKind, { color: string; label: string }> 
   tac: { color: '#a78bfa', label: 'インキ量超過' },
   'rich-black': { color: '#facc15', label: 'リッチブラック文字' },
   hairline: { color: '#38bdf8', label: '極細線' },
+  font: { color: '#ff6161', label: '未埋め込みフォント' },
 };
 
 interface Props {
@@ -284,35 +285,67 @@ export default function Preview2D({ result, settings, pageIdx, showTac, showGuid
         `データサイズ ${mm(vb[2] - vb[0])}×${mm(vb[3] - vb[1])}mm${trim ? ' (塗り足し込み)' : ''}`, DATA_C);
     }
 
-    // ---- problem-spot markers (該当箇所の表示) ----
+    // ---- problem-spot markers: callout chips with leader arrows (該当箇所) ----
     if (markerKind) {
       const style = MARKER_STYLE[markerKind];
       const spots = (result.markers ?? []).filter(
         (m) => m.kind === markerKind && m.page === pageIdx + 1,
       );
+      const drawArrow = (fx: number, fy: number, txx: number, tyy: number) => {
+        const dx = txx - fx, dy = tyy - fy;
+        const len = Math.hypot(dx, dy) || 1;
+        const ux = dx / len, uy = dy / len;
+        // shorten so the head tip lands exactly on the target
+        const ex = txx - ux * 4, ey = tyy - uy * 4;
+        ctx.strokeStyle = style.color;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(ex, ey); ctx.stroke();
+        ctx.fillStyle = style.color;
+        ctx.beginPath();
+        ctx.moveTo(txx, tyy);
+        ctx.lineTo(txx - ux * 13 - uy * 5.5, tyy - uy * 13 + ux * 5.5);
+        ctx.lineTo(txx - ux * 13 + uy * 5.5, tyy - uy * 13 - ux * 5.5);
+        ctx.closePath(); ctx.fill();
+      };
+
       for (const m of spots) {
         const [x, yBottom] = toPx(m.rectPt.x, m.rectPt.y);
         const wpx = Math.max(m.rectPt.w * s, 6);
         const hpx = Math.max(m.rectPt.h * s, 6);
         const y = yBottom - hpx;
-        // dim everything except a halo? keep simple: strong outlined rect + label
         ctx.save();
+
+        // outline the spot (dashed = approximate text position)
         ctx.strokeStyle = style.color;
         ctx.lineWidth = 3;
-        ctx.setLineDash(m.point ? [4, 4] : []);
+        ctx.setLineDash(m.point ? [5, 4] : []);
         ctx.strokeRect(x, y, wpx, hpx);
         ctx.setLineDash([]);
-        // corner tick for visibility on busy artwork
+
+        // label chip placed away from the spot, with an arrow pointing at it
+        const label = m.label ?? style.label;
+        ctx.font = 'bold 13px sans-serif';
+        const tw = ctx.measureText(label).width + 12, th = 20;
+        let cxp = x - tw - 26;                       // prefer upper-left
+        let cyp = y - th - 20;
+        if (cxp < 4) cxp = Math.min(x + wpx + 26, over.width - tw - 4); // flip right
+        if (cyp < 4) cyp = Math.min(y + hpx + 20, over.height - th - 4); // flip below
+        // leader: from the chip edge to the nearest point on the spot rect
+        const chipCx = cxp + tw / 2, chipCy = cyp + th / 2;
+        const ax = Math.max(x, Math.min(chipCx, x + wpx));
+        const ay = Math.max(y, Math.min(chipCy, y + hpx));
+        const sx = Math.max(cxp, Math.min(ax, cxp + tw));
+        const sy = chipCy < ay ? cyp + th : cyp;
+        drawArrow(sx, sy, ax, ay);
+
         ctx.fillStyle = style.color;
         ctx.beginPath();
-        ctx.arc(x, y, 4.5, 0, Math.PI * 2);
+        ctx.roundRect(cxp, cyp, tw, th, 4);
         ctx.fill();
-        const label = m.label ?? style.label;
-        ctx.font = 'bold 12px sans-serif';
-        const tw = ctx.measureText(label).width + 10;
-        ctx.fillRect(x, Math.max(0, y - 18), tw, 18);
-        ctx.fillStyle = '#1a1a1a';
-        ctx.fillText(label, x + 5, Math.max(13, y - 5));
+        ctx.fillStyle = '#141414';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, cxp + 6, cyp + th / 2 + 0.5);
+        ctx.textBaseline = 'alphabetic';
         ctx.restore();
       }
     }

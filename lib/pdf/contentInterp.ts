@@ -110,6 +110,9 @@ export function interpretContent(
   // Illustrator's ICCBased CMYK). Without this, `/CS0 cs 0 0 0 0 scn` would be
   // unclassifiable and AI/InDesign colors would go undetected.
   csNames: Record<string, { kind: 'cmyk' | 'rgb' | 'gray' | 'sep' | 'other' }> = {},
+  // font resource name -> embedded? (resolved by rawScan) for locating
+  // text drawn with non-embedded fonts.
+  fontNames: Record<string, { embedded: boolean; baseFont: string | null }> = {},
 ): ContentStats {
   const cmykMap = new Map<string, CmykUsage>();
   const richText: CmykUsage[] = [];
@@ -156,6 +159,7 @@ export function interpretContent(
     const stack: GState[] = [];
     let inText = false;
     let tx = 0, ty = 0, fontSize = 12;
+    let curFont: string | null = null;
     let path = newBox();
     const nums: number[] = [];
     let lastName: string | null = null;
@@ -324,6 +328,7 @@ export function interpretContent(
           case 'BT': inText = true; tx = 0; ty = 0; break;
           case 'ET': inText = false; break;
           case 'Tf': {
+            if (lastName) curFont = lastName;
             const v = nums[nums.length - 1];
             if (Number.isFinite(v) && v > 0) fontSize = v;
             break;
@@ -343,6 +348,10 @@ export function interpretContent(
               if (heavy >= 3) addMarker('rich-black', page, textBox(), '4C文字', true);
             }
             if (st.space === 'rgb') addMarker('rgb', page, textBox(), 'RGB文字', true);
+            if (curFont && fontNames[curFont] && !fontNames[curFont].embedded) {
+              addMarker('font', page, textBox(),
+                fontNames[curFont].baseFont ?? '未埋め込み', true);
+            }
             break;
           }
           default: break;

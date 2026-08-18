@@ -19,6 +19,8 @@ export interface RawScanResult {
   corpus: string;             // raw text + all inflated stream text
   csNames: Record<string, CsInfo>; // colorspace resource name (e.g. CS0) -> kind
   gradientCmyk: { c: number; m: number; y: number; k: number }[]; // Type-2 fn stops
+  // font resource name (e.g. F1, C2_0) -> embedded? (resolved via descriptor chain)
+  fontNames: Record<string, { embedded: boolean; baseFont: string | null }>;
   boxes: {
     media: number[][]; trim: number[][]; bleed: number[][];
     crop: number[][]; art: number[][];
@@ -221,12 +223,10 @@ export function rawScanPdf(bytes: Uint8Array): RawScanResult {
     }
   }
 
-  // Fonts: FontName + nearby FontFile within same descriptor dict.
+  // Fonts (1): FontName + nearby FontFile within same descriptor dict (heuristic).
   const fontsNotEmbedded: string[] = [];
   let fontsTotal = 0;
   {
-    const re = /\/FontDescriptor|\/FontName\s*\/([^\s/\]<>()]+)/g;
-    // simpler: iterate FontName matches, look ahead a window for FontFile
     const fn = /\/FontName\s*\/([^\s/\]<>()]+)/g;
     let m: RegExpExecArray | null;
     const seen = new Set<string>();
@@ -238,7 +238,47 @@ export function rawScanPdf(bytes: Uint8Array): RawScanResult {
       const window = corpus.slice(m.index, m.index + 1200);
       if (!/\/FontFile[23]?[\s/]/.test(window)) fontsNotEmbedded.push(name);
     }
-    void re;
+  }
+
+  // Fonts (2): resolve font RESOURCE names (/F1 etc.) through the object graph
+  // so text-show locations can be attributed to non-embedded fonts. Also catches
+  // standard-14 fonts (no descriptor at all = not embedded).
+  const fontNames: Record<string, { embedded: boolean; baseFont: string | null }> = {};
+  {
+    const resolveFont = (body: string, depth = 0): { embedded: boolean; baseFont: string | null } | null => {
+      if (depth > 3 || !/\/Type\s*\/Font|\/BaseFont/.test(body)) return null;
+      const bf = body.match(/\/BaseFont\s*\/([^\s/\]<>()]+)/);
+      const baseFont = bf ? bf[1].replace(/^[A-Z]{6}\+/, '') : null;
+      const fd = body.match(/\/FontDescriptor\s+(\d+)\s+\d+\s+R/);
+      if (fd) {
+        const d = objMap.get(+fd[1]) ?? '';
+        return { embedded: /\/FontFile[23]?[\s/]/.test(d), baseFont };
+      }
+      const df = body.match(/\/DescendantFonts\s*\[?\s*(\d+)\s+\d+\s+R/);
+      if (df) {
+        const child = resolveFont(objMap.get(+df[1]) ?? '', depth + 1);
+        if (child) return { embedded: child.embedded, baseFont: baseFont ?? child.baseFont };
+      }
+      // no descriptor (standard-14 etc.) and no embedded file in the dict itself
+      return { embedded: /\/FontFile[23]?[\s/]/.test(body), baseFont };
+    };
+    const re = /\/([A-Za-z][\w]{0,40})\s+(\d+)\s+\d+\s+R/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(corpus)) !== null) {
+      if (fontNames[m[1]]) continue;
+      const body = objMap.get(+m[2]);
+      if (!body || !/\/Type\s*\/Font/.test(body)) continue;
+      const r = resolveFont(body);
+      if (r) fontNames[m[1]] = r;
+    }
+    // merge into the not-embedded list (unique base names)
+    for (const f of Object.values(fontNames)) {
+      if (!f.embedded) {
+        const name = f.baseFont ?? '(名称不明フォント)';
+        if (!fontsNotEmbedded.includes(name)) fontsNotEmbedded.push(name);
+      }
+    }
+    fontsTotal = Math.max(fontsTotal, Object.keys(fontNames).length);
   }
 
   // PDF/X output intent
@@ -295,6 +335,7 @@ export function rawScanPdf(bytes: Uint8Array): RawScanResult {
     corpus,
     csNames,
     gradientCmyk,
+    fontNames,
     boxes: {
       media: parseBoxes(corpus, 'MediaBox'),
       trim: parseBoxes(corpus, 'TrimBox'),

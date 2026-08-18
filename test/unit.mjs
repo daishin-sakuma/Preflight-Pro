@@ -49,7 +49,17 @@ function geomFromBoxes(raw, wPt, hPt) {
 {
   const bytes = fx('bad.pdf');
   const raw = rawScanPdf(bytes);
-  const content = interpretContent(raw.contentStreams, raw.scan.overprintTrue);
+  const content = interpretContent(raw.contentStreams, raw.scan.overprintTrue, raw.csNames, raw.fontNames);
+
+  // font resolution + text location
+  expect(raw.fontNames['F1']?.embedded === false && raw.fontNames['F1']?.baseFont === 'Helvetica',
+    `bad.pdf: /F1 → Helvetica 未埋め込み解決 (got ${JSON.stringify(raw.fontNames['F1'])})`);
+  expect(raw.scan.fontsNotEmbedded.includes('Helvetica'), 'bad.pdf: 未埋め込みリストにHelvetica');
+  const fontM = content.markers.filter((m) => m.kind === 'font');
+  expect(fontM.length >= 1 &&
+    Math.abs(fontM[0].rectPt.x - 100) < 2 && Math.abs(fontM[0].rectPt.y - 700) < 2,
+    `bad.pdf: フォントマーカー位置=(100,700) (got ${JSON.stringify(fontM[0]?.rectPt)})`);
+  expect(fontM[0]?.label === 'Helvetica', `bad.pdf: フォントマーカーlabel=Helvetica (got ${fontM[0]?.label})`);
 
   expect(raw.contentStreams.length >= 1, 'bad.pdf: コンテンツストリーム抽出');
   expect(raw.scan.overprintTrue, 'bad.pdf: オーバープリント(/OP true)検出');
@@ -88,6 +98,8 @@ function geomFromBoxes(raw, wPt, hPt) {
   expect(byId['rgb'].markerKind === 'rgb', 'checks: RGB→マーカー紐付け');
   expect(byId['white-op'].markerKind === 'white-op', 'checks: 白ノセ→マーカー紐付け');
   expect(byId['hairline'].markerKind === 'hairline', 'checks: 細線→マーカー紐付け');
+  expect(byId['fonts']?.severity === 'error' && byId['fonts']?.markerKind === 'font',
+    `checks: フォント未埋め込み=エラー+マーカー紐付け (got ${byId['fonts']?.severity}/${byId['fonts']?.markerKind})`);
 }
 
 // ---------------- good.pdf ----------------

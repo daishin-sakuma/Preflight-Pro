@@ -64,7 +64,7 @@ export async function analyzePdf(
   const raw = rawScanPdf(bytes);
 
   onProgress?.('カラー・オーバープリントを解析中…');
-  const content = interpretContent(raw.contentStreams, raw.scan.overprintTrue, raw.csNames);
+  const content = interpretContent(raw.contentStreams, raw.scan.overprintTrue, raw.csNames, raw.fontNames);
 
   // merge gradient (shading) endpoint colors — they carry real ink values but
   // never appear as fill operators in the content stream.

@@ -44,15 +44,24 @@ function croppedToTrim(result: AnalysisResult, pageIdx: number): { canvas: HTMLC
   const w = (trim[2] - trim[0]) * s;
   const h = (trim[3] - trim[1]) * s;
   const y = src.height - (trim[3] - vb[1]) * s;
+  const k = ssFactor(w, h);
   const out = document.createElement('canvas');
-  out.width = Math.max(2, Math.round(w));
-  out.height = Math.max(2, Math.round(h));
-  out.getContext('2d')!.drawImage(src, x, y, w, h, 0, 0, out.width, out.height);
+  out.width = Math.max(2, Math.round(w * k));
+  out.height = Math.max(2, Math.round(h * k));
+  const ctx = out.getContext('2d')!;
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(src, x, y, w, h, 0, 0, out.width, out.height);
   return { canvas: out, wMm: (trim[2] - trim[0]) * MM_PER_PT, hMm: (trim[3] - trim[1]) * MM_PER_PT };
 }
 
 // Full page (bleed included) composited with the selected overlays — used by
 // the 3D preview when guides / dims / TAC are switched on.
+// target long-edge (px) for the 3D paper texture, so small previews aren't
+// magnified by the GPU into a jagged/soft mess (overlays stay crisp too).
+const TEX_TARGET = 2600;
+const ssFactor = (w: number, h: number) =>
+  Math.min(3, Math.max(1, TEX_TARGET / Math.max(w, h)));
+
 function compositedFullPage(
   result: AnalysisResult, settings: Settings, pageIdx: number,
   opts: { showTac: boolean; showGuides: boolean; showDims: boolean; markerKind: MarkerKind | null },
@@ -60,11 +69,14 @@ function compositedFullPage(
   const src = result.previews[pageIdx];
   const geom = result.pages[pageIdx];
   if (!src || !geom) return null;
+  const k = ssFactor(src.width, src.height);
   const out = document.createElement('canvas');
-  out.width = src.width;
-  out.height = src.height;
-  out.getContext('2d')!.drawImage(src, 0, 0);
-  renderOverlays(out, { result, settings, pageIdx, ...opts });
+  out.width = Math.round(src.width * k);
+  out.height = Math.round(src.height * k);
+  const ctx = out.getContext('2d')!;
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(src, 0, 0, out.width, out.height);
+  renderOverlays(out, { result, settings, pageIdx, ...opts, scaleOverride: result.renderScale * k });
   const vb = geom.viewBoxPt ?? geom.mediaBoxPt;
   return {
     canvas: out,

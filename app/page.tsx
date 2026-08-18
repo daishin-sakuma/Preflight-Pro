@@ -248,7 +248,7 @@ export default function Home() {
     <>
       <header className="header">
         <div className="logo">
-          <span className="mark">Preflight Pro</span>
+          <span className="mark">Preflight</span>
         </div>
         <button
           className="btn ghost small themeToggle"

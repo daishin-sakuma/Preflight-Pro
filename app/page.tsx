@@ -427,6 +427,7 @@ export default function Home() {
             </span>
           </div>
 
+          <div className="previewCol">
           <div className="card previewCard">
             <div className="previewTabs">
               <button className={tab === '3d' ? 'on' : ''} onClick={() => setTab('3d')}>3Dプレビュー</button>
@@ -525,17 +526,18 @@ export default function Home() {
             )}
           </div>
 
-          <ResultsPanel
-            findings={result.findings}
-            onLocate={onLocate}
-            activeMarkerKind={markerKind}
-          />
-
           <div className="footerNote">
             ※ 本ツールの判定は入稿前のセルフチェックを目的とした解析であり、印刷所の正式なデータチェックを代替するものではありません。
             総インキ量のピクセル判定はRGBレンダリングからの近似値です (ベクターオブジェクトのCMYK値は正確に判定されます)。
             {result.kind === 'pdf' && ` 判定基準: 仕上がり ${paperSizeMm(settings.paperId, settings.customWmm, settings.customHmm, settings.landscape).wMm}×${paperSizeMm(settings.paperId, settings.customWmm, settings.customHmm, settings.landscape).hMm}mm / 塗り足し${settings.bleedMm}mm / TAC上限${settings.tacLimit}% / ${settings.minDpi}dpi以上`}
           </div>
+          </div>
+
+          <ResultsPanel
+            findings={result.findings}
+            onLocate={onLocate}
+            activeMarkerKind={markerKind}
+          />
         </div>
       )}
     </>

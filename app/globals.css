@@ -433,9 +433,14 @@ input[type="number"] { width: 76px; min-width: 0; }
 .locateBtn:hover { background: var(--accent-dim); border-color: var(--accent); }
 .locateBtn.on { background: var(--accent-dim); border-color: var(--accent); }
 
+/* left column: preview + footnote stacked, sidebar height independent */
+.previewCol {
+  display: flex; flex-direction: column; gap: 10px;
+  min-width: 0;
+}
 .footerNote {
-  grid-column: 1 / -1; font-size: 10.5px; color: var(--subtle);
-  padding: 4px 6px 28px; line-height: 1.8;
+  font-size: 10.5px; color: var(--subtle);
+  padding: 0 6px 20px; line-height: 1.8;
 }
 
 .errorBox {

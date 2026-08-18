@@ -385,6 +385,10 @@ input[type="number"] { width: 76px; min-width: 0; }
   font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--text);
   margin: var(--space-8) 0 var(--space-4);
 }
+.landing h3 {
+  font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--text);
+  margin: var(--space-5) 0 var(--space-2);
+}
 .landing p { margin-bottom: var(--space-5); }
 .landing strong { color: var(--text); font-weight: var(--fw-semibold); }
 .landing a { color: var(--accent-strong); text-decoration: none; }

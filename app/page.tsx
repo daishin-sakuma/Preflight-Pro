@@ -414,47 +414,110 @@ export default function Home() {
           <section className="landing">
             <h1>Print data preflight &amp; proofing in your browser</h1>
             <p>
-              <strong>Preflight</strong> is a free, browser-based tool to check your print data
-              before you submit it to a print shop. Drop in a PDF, Adobe Illustrator (.ai), JPEG or
-              PNG and get an instant, detailed report. There is no sign-up and nothing is uploaded —
-              every file is analysed locally in your browser, so your artwork never leaves your computer.
+              <strong>Preflight</strong> is a free tool for print data preflight and proofing that runs
+              entirely in your browser. Before you submit artwork to a print shop, drop in a PDF, Adobe
+              Illustrator (.ai), JPEG or PNG and get an instant, detailed report. There is no sign-up and
+              nothing is uploaded — every file is analysed locally in your browser, so your print data
+              never leaves your computer. Whether you are a designer preparing a brochure, a photographer
+              building a photo book, or a small business printing business cards and flyers, doing your
+              preflight and proofing in the browser helps you catch problems before they turn into a
+              costly reprint.
             </p>
 
             <nav className="landingNav" aria-label="On this page">
               <a href="#checks">What it checks</a>
+              <a href="#how">How it works</a>
+              <a href="#formats">File types</a>
               <a href="#why">Why preflight</a>
+              <a href="#glossary">Print glossary</a>
               <a href="#privacy">Privacy</a>
+              <a href="#faq">FAQ</a>
             </nav>
 
             <h2 id="checks">What Preflight checks</h2>
             <p>
-              Preflight runs the same core checks a prepress operator would, and shows exactly where
-              each problem is on a 3D paper preview and a zoomable 2D proof:
+              Preflight runs the same core checks a prepress operator would, and shows exactly where each
+              problem is on a 3D paper preview and a zoomable 2D proof. Every finding comes with a
+              plain-language explanation and, where possible, an arrow that points to the affected object
+              so proofing is fast and unambiguous:
             </p>
             <ul className="landingList">
-              <li><strong>Color mode</strong> — detects RGB objects that should be CMYK, plus spot colors and ICC profiles.</li>
-              <li><strong>Total ink coverage (TAC)</strong> — flags colors that exceed your ink limit and 4-color / rich blacks.</li>
-              <li><strong>Bleed &amp; trim size</strong> — verifies the finished size and that enough bleed is present.</li>
-              <li><strong>Overprint</strong> — finds overprint and white-overprint (knockout) that can vanish in print.</li>
-              <li><strong>Fonts</strong> — checks that every font is embedded or converted to outlines.</li>
-              <li><strong>Image resolution</strong> — calculates the effective DPI of placed images against your required resolution.</li>
+              <li><strong>Color mode</strong> — detects RGB objects that should be CMYK, plus spot colors and ICC profiles that may shift on press.</li>
+              <li><strong>Total ink coverage (TAC)</strong> — flags colors that exceed your ink limit and 4-color / rich blacks that can smear or set off.</li>
+              <li><strong>Bleed &amp; trim size</strong> — verifies the finished size and that enough bleed is present so no white edges appear after cutting.</li>
+              <li><strong>Overprint</strong> — finds overprint and white-overprint (knockout) that looks fine on screen but can vanish in print.</li>
+              <li><strong>Fonts</strong> — checks that every font is embedded or converted to outlines so text is not substituted at the shop.</li>
+              <li><strong>Image resolution</strong> — calculates the effective DPI of placed images against your required resolution to avoid blurry output.</li>
             </ul>
+            <p>
+              Not sure what a term means? Jump to the <a href="#glossary">print glossary</a> for short
+              definitions of bleed, trim, TAC, overprint and effective resolution.
+            </p>
+
+            <h2 id="how">How preflight and proofing works</h2>
+            <p>
+              Getting a proof takes three quick steps. First, choose a file or drag it onto the uploader
+              above — the tool reads it immediately and runs a fast pre-check. Second, confirm the check
+              settings: finished size, bleed, ink limit and required resolution. Preflight can estimate
+              the finished size and bleed from the file itself, and your settings are remembered for next
+              time. Third, press Check to run the full inspection and review the result. You can rotate
+              the 3D paper preview, flip between front and back, zoom the 2D proof, and toggle guides,
+              dimensions and an ink-coverage overlay. Because everything is computed in your browser, the
+              report appears in seconds and you can re-run the <a href="#checks">checks</a> with different
+              settings as many times as you like.
+            </p>
+
+            <h2 id="formats">Supported file types</h2>
+            <p>
+              Preflight accepts the formats most commonly used for print submission: <strong>PDF</strong>,
+              Adobe <strong>Illustrator (.ai)</strong> saved as PDF-compatible, <strong>JPEG</strong> and
+              <strong> PNG</strong>. Vector files such as PDF and Illustrator are inspected object by object,
+              so exact CMYK values, overprint settings and fonts are read directly from the file. Raster
+              files such as JPEG and PNG are checked for color mode, transparency and whether their pixel
+              size is high enough for the chosen print size. For the strictest color control, exporting a
+              CMYK PDF/X file is recommended, but the tool works well with everyday exports too.
+            </p>
 
             <h2 id="why">Why preflight before you print?</h2>
             <p>
-              Most reprints and unexpected charges come from a handful of avoidable issues: artwork
-              left in RGB, black text built from four inks, missing bleed, non-embedded fonts, or
-              low-resolution images. Catching these before submission saves time, money and a
-              frustrating back-and-forth with the printer. Preflight gives you a clear, plain-language
-              report and pinpoints each issue on the preview so you can fix it with confidence.
+              Most reprints and unexpected charges come from a handful of avoidable issues: artwork left in
+              RGB, black text built from four inks, missing bleed, non-embedded fonts, or low-resolution
+              images. Catching these during preflight and proofing saves time, money and a frustrating
+              back-and-forth with the printer. A commercial press cannot “undo” a mistake once plates are
+              made, so a few minutes of checking up front is the cheapest insurance you can buy. Preflight
+              gives you a clear report and pinpoints each issue on the preview so you can fix it with
+              confidence before you submit your <a href="#formats">print data</a>.
             </p>
+
+            <h2 id="glossary">Print glossary</h2>
+            <ul className="landingList">
+              <li><strong>Bleed</strong> — extra artwork (usually 3&nbsp;mm) extending past the trim so no white edge shows after cutting.</li>
+              <li><strong>Trim</strong> — the final cut line; the finished size of the printed piece.</li>
+              <li><strong>Safe area</strong> — a margin inside the trim where important text and logos should stay.</li>
+              <li><strong>TAC / total ink coverage</strong> — the sum of C, M, Y and K percentages; too high and ink will not dry.</li>
+              <li><strong>Overprint</strong> — printing one ink on top of another instead of knocking it out; white overprint can disappear.</li>
+              <li><strong>Rich black</strong> — black mixed from several inks for a deeper tone; risky for small text.</li>
+              <li><strong>Effective resolution (DPI)</strong> — an image’s real resolution at its placed size, which drops as you scale it up.</li>
+              <li><strong>CMYK vs RGB</strong> — presses print in CMYK, so RGB artwork is converted and vivid colors can look duller.</li>
+            </ul>
 
             <h2 id="privacy">Private by design</h2>
             <p>
               Preflight is fully client-side. Your PDF, Illustrator, JPEG and PNG files are processed
-              entirely in your browser and are never sent to a server, which keeps confidential
-              artwork safe. It is free to use and works even without a stable connection once loaded.
+              entirely in your browser and are never sent to a server, which keeps confidential artwork
+              safe. It is free to use, requires no account, and works even without a stable connection once
+              the page has loaded.
             </p>
+
+            <h2 id="faq">Frequently asked questions</h2>
+            <h3>Is Preflight free?</h3>
+            <p>Yes. Preflight is completely free and does not require an account.</p>
+            <h3>Are my files uploaded anywhere?</h3>
+            <p>No. All preflight and proofing happens locally in your browser; nothing is sent to a server. See <a href="#privacy">privacy</a>.</p>
+            <h3>Does it replace the print shop’s own check?</h3>
+            <p>No. It is a pre-submission self-check to catch common issues early; the shop still performs its official inspection.</p>
+            <h3>Which files can I check?</h3>
+            <p>PDF, Adobe Illustrator (.ai), JPEG and PNG — see <a href="#formats">supported file types</a>.</p>
 
             <p className="landingLinks">
               <a href="https://github.com/daishin-sakuma/Preflight-Pro" target="_blank" rel="noopener noreferrer">

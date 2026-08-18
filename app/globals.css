@@ -145,6 +145,15 @@ body {
 button { font-family: inherit; cursor: pointer; }
 ::selection { background: var(--accent-dim); }
 
+/* animate light/dark theme switches at the standard duration. Elements with
+   their own `transition` (buttons, etc.) keep it and win the cascade; this only
+   provides a default for everything else so colours cross-fade on toggle. */
+*, *::before, *::after {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-duration: var(--dur);
+  transition-timing-function: ease;
+}
+
 :focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 1px;

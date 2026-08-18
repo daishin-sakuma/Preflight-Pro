@@ -16,6 +16,15 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://preflight-pro.vercel.app'),
   title: APP_TITLE,
   description: APP_DESC,
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/favicon-96x96.png', type: 'image/png', sizes: '96x96' },
+    ],
+    apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
+  },
+  appleWebApp: { capable: true, title: 'Preflight', statusBarStyle: 'default' },
   openGraph: {
     title: APP_TITLE,
     description: APP_DESC,

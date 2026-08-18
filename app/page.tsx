@@ -555,16 +555,6 @@ export default function Home() {
               )}
             </div>
             <div className="previewCtrl">
-              {result.pageCount > 2 && (
-                <>
-                  <select value={pageIdx} onChange={(e) => setPageIdx(+e.target.value)} title="Jump to page">
-                    {result.previews.map((_, i) => (
-                      <option key={i} value={i}>{`Page ${i + 1}`}</option>
-                    ))}
-                  </select>
-                  <span className="sep" />
-                </>
-              )}
               {tab === '3d' && (
                 <>
                   <button className={`btn ghost small ${autoRotate ? 'active' : ''}`}

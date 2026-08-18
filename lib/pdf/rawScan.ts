@@ -21,6 +21,8 @@ export interface RawScanResult {
   gradientCmyk: { c: number; m: number; y: number; k: number }[]; // Type-2 fn stops
   // font resource name (e.g. F1, C2_0) -> embedded? (resolved via descriptor chain)
   fontNames: Record<string, { embedded: boolean; baseFont: string | null }>;
+  // ExtGState resource name (e.g. GS0) -> does it switch overprint ON?
+  gsNames: Record<string, { overprint: boolean }>;
   boxes: {
     media: number[][]; trim: number[][]; bleed: number[][];
     crop: number[][]; art: number[][];
@@ -281,6 +283,30 @@ export function rawScanPdf(bytes: Uint8Array): RawScanResult {
     fontsTotal = Math.max(fontsTotal, Object.keys(fontNames).length);
   }
 
+  // ExtGState resource names -> overprint on/off (so `gs` ops in content can be
+  // located; also makes white-overprint detection precise).
+  const gsNames: Record<string, { overprint: boolean }> = {};
+  {
+    const re = /\/([A-Za-z][\w]{0,40})\s+(\d+)\s+\d+\s+R/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(corpus)) !== null) {
+      if (gsNames[m[1]] !== undefined) continue;
+      const body = objMap.get(+m[2]);
+      if (!body) continue;
+      if (/\/Type\s*\/ExtGState/.test(body) || /\/(?:OP|op)\s+(?:true|false)/.test(body)) {
+        gsNames[m[1]] = { overprint: /\/(?:OP|op)\s+true/.test(body) };
+      }
+    }
+    // inline dicts: /GS0 << /Type /ExtGState /OP true ... >>
+    const inline = /\/([A-Za-z][\w]{0,40})\s*<<([^<>]{0,400})>>/g;
+    while ((m = inline.exec(corpus)) !== null) {
+      if (gsNames[m[1]] !== undefined) continue;
+      if (/\/Type\s*\/ExtGState/.test(m[2]) || /\/(?:OP|op)\s+(?:true|false)/.test(m[2])) {
+        gsNames[m[1]] = { overprint: /\/(?:OP|op)\s+true/.test(m[2]) };
+      }
+    }
+  }
+
   // PDF/X output intent
   let pdfxVersion: string | null = null;
   let outputIntent: string | null = null;
@@ -336,6 +362,7 @@ export function rawScanPdf(bytes: Uint8Array): RawScanResult {
     csNames,
     gradientCmyk,
     fontNames,
+    gsNames,
     boxes: {
       media: parseBoxes(corpus, 'MediaBox'),
       trim: parseBoxes(corpus, 'TrimBox'),

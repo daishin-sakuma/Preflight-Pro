@@ -49,7 +49,15 @@ function geomFromBoxes(raw, wPt, hPt) {
 {
   const bytes = fx('bad.pdf');
   const raw = rawScanPdf(bytes);
-  const content = interpretContent(raw.contentStreams, raw.scan.overprintTrue, raw.csNames, raw.fontNames);
+  const content = interpretContent(raw.contentStreams, raw.scan.overprintTrue, raw.csNames, raw.fontNames, raw.gsNames);
+
+  // ExtGState resolution + overprint markers
+  expect(raw.gsNames['GS0']?.overprint === true,
+    `bad.pdf: /GS0 → OP true 解決 (got ${JSON.stringify(raw.gsNames['GS0'])})`);
+  const opM = content.markers.filter((m) => m.kind === 'overprint');
+  expect(opM.length >= 1 &&
+    Math.abs(opM[0].rectPt.x - 350) < 1 && Math.abs(opM[0].rectPt.y - 450) < 1,
+    `bad.pdf: ノセマーカー位置=(350,450) (got ${JSON.stringify(opM[0]?.rectPt)})`);
 
   // font resolution + text location
   expect(raw.fontNames['F1']?.embedded === false && raw.fontNames['F1']?.baseFont === 'Helvetica',
@@ -100,6 +108,8 @@ function geomFromBoxes(raw, wPt, hPt) {
   expect(byId['hairline'].markerKind === 'hairline', 'checks: 細線→マーカー紐付け');
   expect(byId['fonts']?.severity === 'error' && byId['fonts']?.markerKind === 'font',
     `checks: フォント未埋め込み=エラー+マーカー紐付け (got ${byId['fonts']?.severity}/${byId['fonts']?.markerKind})`);
+  expect(byId['overprint']?.severity === 'warning' && byId['overprint']?.markerKind === 'overprint',
+    `checks: ノセ警告+マーカー紐付け (got ${byId['overprint']?.severity}/${byId['overprint']?.markerKind})`);
 }
 
 // ---------------- good.pdf ----------------

@@ -226,10 +226,17 @@ export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
       out.push(f('white-op', 'ink', 'error', '白オブジェクトのオーバープリント (白ノセ) の疑い',
         `オーバープリント設定が有効な文書内で、白い塗りオブジェクトを${a.content.whiteFillWithGs}件検出しました。白にノセが設定されていると、その部分は印刷時に消えます (画面では見えるため事故が多発するポイントです)。オーバープリントを解除してください。`,
         { markerKind: mk('white-op'), pages: mkPages('white-op').length ? mkPages('white-op') : undefined }));
-    } else if (a.scan.overprintTrue) {
+    }
+    if (a.scan.overprintTrue) {
+      const opCount = (a.markers ?? []).filter((m) => m.kind === 'overprint').length;
       out.push(f('overprint', 'ink', 'warning', 'オーバープリント (ノセ) 設定あり',
-        'オーバープリント指定が含まれています。意図したノセ (K100文字のノセ等) であれば問題ありませんが、意図しない場合は「オーバープリントプレビュー」で確認してください。印刷所によっては自動でK100のみノセ処理されます。'));
-    } else {
+        'オーバープリント指定が含まれています。意図したノセ (K100文字のノセ等) であれば問題ありませんが、意図しない場合は「オーバープリントプレビュー」で確認してください。印刷所によっては自動でK100のみノセ処理されます。',
+        {
+          count: opCount || undefined,
+          markerKind: mk('overprint'),
+          pages: mkPages('overprint').length ? mkPages('overprint') : undefined,
+        }));
+    } else if (a.content.whiteFillWithGs === 0) {
       out.push(f('overprint', 'ink', 'ok', 'オーバープリント設定なし',
         '危険なオーバープリント指定は検出されませんでした (K100文字は印刷所側で自動ノセ処理されるのが一般的です)。'));
     }

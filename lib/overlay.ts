@@ -14,6 +14,7 @@ export const MARKER_STYLE: Record<MarkerKind, { color: string; label: string }> 
   'rich-black': { color: '#facc15', label: 'リッチブラック文字' },
   hairline: { color: '#38bdf8', label: '極細線' },
   font: { color: '#ff6161', label: '未埋め込みフォント' },
+  overprint: { color: '#2dd4bf', label: 'オーバープリント (ノセ)' },
 };
 
 export interface OverlayArgs {

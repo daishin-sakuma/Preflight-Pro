@@ -96,6 +96,7 @@ interface GState {
   space: 'rgb' | 'cmyk' | 'gray' | 'other';
   color: number[];
   gsActive: boolean;
+  overprintOn: boolean;   // resolved from gsNames when available
   lineWidth: number;
 }
 
@@ -113,7 +114,11 @@ export function interpretContent(
   // font resource name -> embedded? (resolved by rawScan) for locating
   // text drawn with non-embedded fonts.
   fontNames: Record<string, { embedded: boolean; baseFont: string | null }> = {},
+  // ExtGState resource name -> overprint flag (resolved by rawScan). When
+  // available, overprint state is tracked precisely instead of heuristically.
+  gsNames: Record<string, { overprint: boolean }> = {},
 ): ContentStats {
+  const gsResolved = Object.keys(gsNames).length > 0;
   const cmykMap = new Map<string, CmykUsage>();
   const richText: CmykUsage[] = [];
   const markers: Marker[] = [];
@@ -155,7 +160,7 @@ export function interpretContent(
     const src = typeof input === 'string' ? input : input.text;
     const page = typeof input === 'string' ? 1 : Math.max(1, input.page);
 
-    const st: GState = { ctm: IDENT, space: 'other', color: [], gsActive: false, lineWidth: 1 };
+    const st: GState = { ctm: IDENT, space: 'other', color: [], gsActive: false, overprintOn: false, lineWidth: 1 };
     const stack: GState[] = [];
     let inText = false;
     let tx = 0, ty = 0, fontSize = 12;
@@ -190,12 +195,18 @@ export function interpretContent(
       return box;
     };
 
+    // effective overprint: precise when gs dicts were resolved, else heuristic
+    const overprintNow = () =>
+      gsResolved ? st.overprintOn : (st.gsActive && docHasOverprint);
+
     const onPaint = (fills: boolean, strokes: boolean) => {
       if (fills) {
         if (st.space === 'rgb' && !isWhite()) addMarker('rgb', page, path, 'RGB');
-        if (isWhite() && st.gsActive && docHasOverprint) {
+        if (isWhite() && overprintNow()) {
           whiteFillWithGs++;
           addMarker('white-op', page, path, '白ノセ疑い');
+        } else if (overprintNow()) {
+          addMarker('overprint', page, path, 'ノセ設定');
         }
         if (st.space === 'cmyk' && st.color.length === 4) {
           // attach the first drawn location to this CMYK usage (for TAC markers)
@@ -213,6 +224,7 @@ export function interpretContent(
       }
       if (strokes) {
         if (st.space === 'rgb') addMarker('rgb', page, path, 'RGB');
+        if (overprintNow() && !isWhite()) addMarker('overprint', page, path, 'ノセ設定');
         const eff = st.lineWidth * ctmScale();
         if (eff > 0 && eff < 0.25) {
           hairlineCount++;
@@ -318,7 +330,13 @@ export function interpretContent(
             }
             break;
           }
-          case 'gs': st.gsActive = true; break;
+          case 'gs': {
+            st.gsActive = true;
+            if (lastName && gsNames[lastName] !== undefined) {
+              st.overprintOn = gsNames[lastName].overprint;
+            }
+            break;
+          }
           case 'w': {
             const v = nums[nums.length - 1];
             if (Number.isFinite(v)) st.lineWidth = v;
@@ -351,6 +369,12 @@ export function interpretContent(
             if (curFont && fontNames[curFont] && !fontNames[curFont].embedded) {
               addMarker('font', page, textBox(),
                 fontNames[curFont].baseFont ?? '未埋め込み', true);
+            }
+            if (overprintNow() && !isWhite()) {
+              addMarker('overprint', page, textBox(), 'ノセ設定 (文字)', true);
+            } else if (overprintNow() && isWhite()) {
+              whiteFillWithGs++;
+              addMarker('white-op', page, textBox(), '白ノセ疑い (文字)', true);
             }
             break;
           }

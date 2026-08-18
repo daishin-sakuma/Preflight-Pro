@@ -669,7 +669,7 @@ export default function Home() {
           <div className="shortcutsCard" onClick={(e) => e.stopPropagation()}>
             <div className="scHead">
               <span>Keyboard shortcuts</span>
-              <button className="btn ghost small" onClick={() => setShowShortcuts(false)}>✕</button>
+              <button className="scClose" aria-label="Close" onClick={() => setShowShortcuts(false)}>✕</button>
             </div>
             <div className="scGrid">
               <div className="scGroup">

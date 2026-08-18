@@ -27,7 +27,23 @@ const THEME_KEY = 'preflight-pro:theme';
 
 // In-page anchor scroll: offset for the sticky header + gap, eased over ~0.3s.
 const SCROLL_OFFSET = 60; // header (44) + breathing room
-function smoothScrollTo(targetY: number, duration = 2000) {
+// cubic-bezier easing evaluator (like CSS transition-timing-function)
+function cubicBezier(x1: number, y1: number, x2: number, y2: number) {
+  const cx = 3 * x1, bx = 3 * (x2 - x1) - cx, ax = 1 - cx - bx;
+  const cy = 3 * y1, by = 3 * (y2 - y1) - cy, ay = 1 - cy - by;
+  const sx = (t: number) => ((ax * t + bx) * t + cx) * t;
+  const sy = (t: number) => ((ay * t + by) * t + cy) * t;
+  const dx = (t: number) => (3 * ax * t + 2 * bx) * t + cx;
+  return (x: number) => {
+    let t = x;
+    for (let i = 0; i < 6; i++) { const e = sx(t) - x; const d = dx(t); if (Math.abs(e) < 1e-4 || d === 0) break; t -= e / d; }
+    return sy(t);
+  };
+}
+// short acceleration, long & gentle deceleration
+const SCROLL_EASE = cubicBezier(0.3, 0.7, 0.15, 1);
+
+function smoothScrollTo(targetY: number, duration = 1200) {
   const reduce = typeof matchMedia !== 'undefined'
     && matchMedia('(prefers-reduced-motion: reduce)').matches;
   // clamp to the actually reachable range so the ease lands exactly on the
@@ -39,8 +55,7 @@ function smoothScrollTo(targetY: number, duration = 2000) {
   const start = window.scrollY;
   const change = y - start;
   const t0 = performance.now();
-  // easeInOutQuint — soft ease in, and an especially gentle, drawn-out stop
-  const ease = (t: number) => (t < 0.5 ? 16 * t * t * t * t * t : 1 - Math.pow(-2 * t + 2, 5) / 2);
+  const ease = SCROLL_EASE;
   const step = (now: number) => {
     const p = Math.min(1, (now - t0) / duration);
     window.scrollTo(0, start + change * ease(p));

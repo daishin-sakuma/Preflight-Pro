@@ -7,7 +7,8 @@ import { DEFAULT_SETTINGS, MM_PER_PT } from '@/lib/types';
 import { PAPER_PRESETS, paperSizeMm } from '@/lib/presets';
 import type { PrecheckInfo } from '@/lib/estimateSize';
 import ResultsPanel, { worstSeverity } from '@/components/ResultsPanel';
-import Preview2D, { MARKER_STYLE } from '@/components/Preview2D';
+import Preview2D from '@/components/Preview2D';
+import { MARKER_STYLE, renderOverlays } from '@/lib/overlay';
 import SettingsForm from '@/components/SettingsForm';
 import type { ViewCommand } from '@/components/Preview3D';
 
@@ -47,6 +48,28 @@ function croppedToTrim(result: AnalysisResult, pageIdx: number): { canvas: HTMLC
   out.height = Math.max(2, Math.round(h));
   out.getContext('2d')!.drawImage(src, x, y, w, h, 0, 0, out.width, out.height);
   return { canvas: out, wMm: (trim[2] - trim[0]) * MM_PER_PT, hMm: (trim[3] - trim[1]) * MM_PER_PT };
+}
+
+// Full page (bleed included) composited with the selected overlays — used by
+// the 3D preview when guides / dims / TAC are switched on.
+function compositedFullPage(
+  result: AnalysisResult, settings: Settings, pageIdx: number,
+  opts: { showTac: boolean; showGuides: boolean; showDims: boolean; markerKind: MarkerKind | null },
+): { canvas: HTMLCanvasElement; wMm: number; hMm: number } | null {
+  const src = result.previews[pageIdx];
+  const geom = result.pages[pageIdx];
+  if (!src || !geom) return null;
+  const out = document.createElement('canvas');
+  out.width = src.width;
+  out.height = src.height;
+  out.getContext('2d')!.drawImage(src, 0, 0);
+  renderOverlays(out, { result, settings, pageIdx, ...opts });
+  const vb = geom.viewBoxPt ?? geom.mediaBoxPt;
+  return {
+    canvas: out,
+    wMm: (vb[2] - vb[0]) * MM_PER_PT,
+    hMm: (vb[3] - vb[1]) * MM_PER_PT,
+  };
 }
 
 export default function Home() {
@@ -164,16 +187,25 @@ export default function Home() {
     return { errs, warns, oks, worst: worstSeverity(result.findings) };
   }, [result]);
 
-  const paper3d = useMemo(
-    () => (result ? croppedToTrim(result, pageIdx) : null),
-    [result, pageIdx],
+  // overlays shown in 3D too: full page (bleed included) with composited guides
+  const overlaysOn = showGuides || showDims || showTac || !!markerKind;
+  const overlayOpts = useMemo(
+    () => ({ showTac, showGuides, showDims, markerKind }),
+    [showTac, showGuides, showDims, markerKind],
   );
+  const paper3d = useMemo(() => {
+    if (!result) return null;
+    return overlaysOn
+      ? compositedFullPage(result, settings, pageIdx, overlayOpts)
+      : croppedToTrim(result, pageIdx);
+  }, [result, pageIdx, overlaysOn, overlayOpts, settings]);
   const back3d = useMemo(() => {
     if (!result || result.pageCount < 2) return null;
     const other = pageIdx === 0 ? 1 : pageIdx - 1 >= 0 ? pageIdx + (pageIdx % 2 === 0 ? 1 : -1) : null;
     if (other === null || other >= result.previews.length) return null;
+    if (overlaysOn) return compositedFullPage(result, settings, other, overlayOpts)?.canvas ?? null;
     return croppedToTrim(result, other)?.canvas ?? null;
-  }, [result, pageIdx]);
+  }, [result, pageIdx, overlaysOn, overlayOpts, settings]);
 
   const stepState =
     phase === 'upload' ? 0 : phase === 'confirm' ? 1 : phase === 'analyzing' ? 2 : 3;
@@ -457,38 +489,38 @@ export default function Home() {
                   <button className="btn ghost small" onClick={() => setCommand((c) => ({ cmd: 'front', n: c.n + 1 }))}>正面</button>
                   <button className="btn ghost small" onClick={() => setCommand((c) => ({ cmd: 'back', n: c.n + 1 }))}>背面</button>
                   <button className="btn ghost small" onClick={() => setCommand((c) => ({ cmd: 'reset', n: c.n + 1 }))}>リセット</button>
-                  <span className="note">
-                    {paper3d && `仕上がり ${Math.round(paper3d.wMm)}×${Math.round(paper3d.hMm)}mm ・ `}
-                    ドラッグで回転 / ホイールで拡大縮小 / 右ドラッグで移動
-                  </span>
+                  <span className="sep" />
                 </>
               )}
-              {tab === '2d' && (
-                <>
-                  <button className={`btn ghost small ${showGuides ? 'active' : ''}`}
-                    onClick={() => setShowGuides((v) => !v)}>
-                    ガイド表示
-                  </button>
-                  <button className={`btn ghost small ${showDims ? 'active' : ''}`}
-                    onClick={() => setShowDims((v) => !v)}>
-                    寸法表示
-                  </button>
-                  <button className={`btn ghost small ${showTac ? 'active' : ''}`}
-                    onClick={() => setShowTac((v) => !v)}>
-                    インキ量 ({settings.tacLimit}%超を表示)
-                  </button>
-                  {markerKind && (
-                    <button className="btn ghost small markerClear"
-                      style={{ borderColor: MARKER_STYLE[markerKind].color, color: MARKER_STYLE[markerKind].color }}
-                      onClick={() => setMarkerKind(null)}>
-                      ◎ {MARKER_STYLE[markerKind].label} の該当箇所を表示中 ✕
-                    </button>
-                  )}
-                  <span className="note">ホイールでズーム (カーソル中心) / ドラッグで移動</span>
-                </>
+              <button className={`btn ghost small ${showGuides ? 'active' : ''}`}
+                onClick={() => setShowGuides((v) => !v)}>
+                ガイド表示
+              </button>
+              <button className={`btn ghost small ${showDims ? 'active' : ''}`}
+                onClick={() => setShowDims((v) => !v)}>
+                寸法表示
+              </button>
+              <button className={`btn ghost small ${showTac ? 'active' : ''}`}
+                onClick={() => setShowTac((v) => !v)}>
+                インキ量 ({settings.tacLimit}%超を表示)
+              </button>
+              {markerKind && (
+                <button className="btn ghost small markerClear"
+                  style={{ borderColor: MARKER_STYLE[markerKind].color, color: MARKER_STYLE[markerKind].color }}
+                  onClick={() => setMarkerKind(null)}>
+                  ◎ {MARKER_STYLE[markerKind].label} の該当箇所を表示中 ✕
+                </button>
+              )}
+              {tab === '3d' ? (
+                <span className="note">
+                  {paper3d && `${overlaysOn ? 'データ' : '仕上がり'} ${Math.round(paper3d.wMm)}×${Math.round(paper3d.hMm)}mm ・ `}
+                  ドラッグで回転 / ホイールで拡大縮小 (カーソル中心)
+                </span>
+              ) : (
+                <span className="note">ホイールでズーム (カーソル中心) / ドラッグで移動</span>
               )}
             </div>
-            {tab === '2d' && showGuides && (
+            {showGuides && (
               <div className="legend">
                 <span className="key"><span className="swatch" style={{ background: 'rgba(40,110,240,.35)' }} />塗り足し (断ち落とし) 領域</span>
                 <span className="key"><span className="swatch" style={{ border: '2px dashed #e11d48', background: 'transparent' }} />仕上がり線 (断裁位置)</span>

@@ -370,6 +370,31 @@ input[type="number"] { width: 76px; min-width: 0; }
   border: 1px solid var(--border);
   border-radius: var(--radius-sm); padding: var(--space-5) var(--space-6);
 }
+/* landing / SEO content shown under the uploader */
+.landing {
+  color: var(--muted);
+  line-height: var(--lh-relaxed);
+  font-size: var(--fs-sm);
+  padding: var(--space-4) var(--space-2) 0;
+}
+.landing h1 {
+  font-size: var(--fs-lg); font-weight: var(--fw-bold); color: var(--text);
+  line-height: var(--lh-tight); margin-bottom: var(--space-5);
+}
+.landing h2 {
+  font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--text);
+  margin: var(--space-8) 0 var(--space-4);
+}
+.landing p { margin-bottom: var(--space-5); }
+.landing strong { color: var(--text); font-weight: var(--fw-semibold); }
+.landing a { color: var(--accent-strong); text-decoration: none; }
+.landing a:hover { text-decoration: underline; }
+.landingNav { display: flex; gap: var(--space-6); flex-wrap: wrap; margin-bottom: var(--space-6); font-size: var(--fs-xs); }
+.landingList { list-style: none; display: flex; flex-direction: column; gap: var(--space-3); margin-bottom: var(--space-5); }
+.landingList li { position: relative; padding-left: var(--space-5); }
+.landingList li::before { content: '▸'; position: absolute; left: 0; color: var(--subtle); }
+.landingLinks { display: flex; gap: var(--space-4); flex-wrap: wrap; align-items: center; font-size: var(--fs-xs); }
+
 .confirmActions { margin-top: var(--space-8); text-align: center; }
 /* full-width footer action bar spanning both confirm columns: helper text
    on the left, primary action right-aligned (professional dialog pattern).

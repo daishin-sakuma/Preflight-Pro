@@ -352,14 +352,10 @@ export default function Home() {
 
   return (
     <>
-      <h1 className="srOnly">
-        Preflight — free browser-based print data preflight &amp; proofing for PDF,
-        Illustrator, JPEG and PNG (RGB/CMYK, ink coverage, bleed, overprint, fonts, resolution)
-      </h1>
       <header className="header">
         <button className="logo" onClick={goHome} title="Back to top" aria-label="Back to top">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="logoImg" src="/logo.png" alt="" width={20} height={20} />
+          <img className="logoImg" src="/logo.png" alt="Preflight logo" width={20} height={20} />
           <span className="mark">Preflight</span>
         </button>
         <button
@@ -414,6 +410,66 @@ export default function Home() {
               </div>
             </div>
           </div>
+
+          <section className="landing">
+            <h1>Print data preflight &amp; proofing in your browser</h1>
+            <p>
+              <strong>Preflight</strong> is a free, browser-based tool to check your print data
+              before you submit it to a print shop. Drop in a PDF, Adobe Illustrator (.ai), JPEG or
+              PNG and get an instant, detailed report. There is no sign-up and nothing is uploaded —
+              every file is analysed locally in your browser, so your artwork never leaves your computer.
+            </p>
+
+            <nav className="landingNav" aria-label="On this page">
+              <a href="#checks">What it checks</a>
+              <a href="#why">Why preflight</a>
+              <a href="#privacy">Privacy</a>
+            </nav>
+
+            <h2 id="checks">What Preflight checks</h2>
+            <p>
+              Preflight runs the same core checks a prepress operator would, and shows exactly where
+              each problem is on a 3D paper preview and a zoomable 2D proof:
+            </p>
+            <ul className="landingList">
+              <li><strong>Color mode</strong> — detects RGB objects that should be CMYK, plus spot colors and ICC profiles.</li>
+              <li><strong>Total ink coverage (TAC)</strong> — flags colors that exceed your ink limit and 4-color / rich blacks.</li>
+              <li><strong>Bleed &amp; trim size</strong> — verifies the finished size and that enough bleed is present.</li>
+              <li><strong>Overprint</strong> — finds overprint and white-overprint (knockout) that can vanish in print.</li>
+              <li><strong>Fonts</strong> — checks that every font is embedded or converted to outlines.</li>
+              <li><strong>Image resolution</strong> — calculates the effective DPI of placed images against your required resolution.</li>
+            </ul>
+
+            <h2 id="why">Why preflight before you print?</h2>
+            <p>
+              Most reprints and unexpected charges come from a handful of avoidable issues: artwork
+              left in RGB, black text built from four inks, missing bleed, non-embedded fonts, or
+              low-resolution images. Catching these before submission saves time, money and a
+              frustrating back-and-forth with the printer. Preflight gives you a clear, plain-language
+              report and pinpoints each issue on the preview so you can fix it with confidence.
+            </p>
+
+            <h2 id="privacy">Private by design</h2>
+            <p>
+              Preflight is fully client-side. Your PDF, Illustrator, JPEG and PNG files are processed
+              entirely in your browser and are never sent to a server, which keeps confidential
+              artwork safe. It is free to use and works even without a stable connection once loaded.
+            </p>
+
+            <p className="landingLinks">
+              <a href="https://github.com/daishin-sakuma/Preflight-Pro" target="_blank" rel="noopener noreferrer">
+                View the source on GitHub
+              </a>
+              <span aria-hidden="true">·</span>
+              <span>Share:</span>
+              <a href="https://twitter.com/intent/tweet?url=https%3A%2F%2Fpreflight-pro.vercel.app&text=Preflight%20%E2%80%94%20check%20your%20print%20data%20in%20the%20browser"
+                target="_blank" rel="noopener noreferrer">X</a>
+              <a href="https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Fpreflight-pro.vercel.app"
+                target="_blank" rel="noopener noreferrer">Facebook</a>
+              <a href="https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Fpreflight-pro.vercel.app"
+                target="_blank" rel="noopener noreferrer">LinkedIn</a>
+            </p>
+          </section>
         </div>
       )}
 

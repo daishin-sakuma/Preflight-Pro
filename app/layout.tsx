@@ -10,8 +10,12 @@ const figtree = Figtree({
 
 const SITE_URL = 'https://preflight-pro.vercel.app';
 const APP_TITLE = 'Preflight — print data check & proofing';
+// Meta description: kept concise (~150 chars) so it isn't truncated in search results.
 const APP_DESC =
-  'Free browser-based preflight for print data. Check PDF, Illustrator (.ai), JPEG and PNG for RGB vs CMYK, total ink coverage (TAC), bleed and trim, overprint, embedded fonts and effective resolution — with a 3D paper preview. Nothing is uploaded; all analysis runs locally in your browser.';
+  'Free browser-based print preflight: check PDF, AI, JPEG & PNG for RGB/CMYK, ink coverage, bleed, overprint, fonts and DPI — with a 3D preview.';
+// Longer copy used only for structured data (no length limit there).
+const LONG_DESC =
+  'Preflight is a free, browser-based tool to check print data before submission. It checks PDF, Illustrator (.ai), JPEG and PNG for RGB vs CMYK, total ink coverage (TAC), bleed and trim, overprint, embedded fonts and effective resolution, with a 3D paper preview and a 2D proof. All analysis runs locally in your browser — files are never uploaded.';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -80,7 +84,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     name: 'Preflight',
     alternateName: APP_TITLE,
     url: SITE_URL,
-    description: APP_DESC,
+    description: LONG_DESC,
     applicationCategory: 'DesignApplication',
     operatingSystem: 'Any (web browser)',
     browserRequirements: 'Requires JavaScript. Runs entirely client-side.',

@@ -184,14 +184,11 @@ button { font-family: inherit; cursor: pointer; }
 .logo .mark { font-size: var(--fs-md); font-weight: var(--fw-bold); letter-spacing: 0.2px; color: var(--text); }
 .themeToggle {
   margin-left: auto;
-  display: inline-flex; align-items: center; gap: var(--space-4);
-  justify-content: flex-start;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; padding: 0;   /* icon-only square button */
 }
-.themeIcon { display: inline-flex; width: 16px; height: 16px; flex: 0 0 16px; }
+.themeIcon { display: inline-flex; width: 16px; height: 16px; }
 .themeIcon svg { width: 16px; height: 16px; display: block; }
-/* reserve the wider label's width so toggling never resizes the button,
-   but without the leftover right-side gap of a fixed button width */
-.themeLabel { line-height: 1; min-width: 32px; text-align: left; }
 
 
 /* ---------- panels (cards) ---------- */

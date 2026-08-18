@@ -25,6 +25,25 @@ const FORMAT_LABELS: Record<string, string> = {
 const SETTINGS_KEY = 'preflight-pro:settings:v1';
 const THEME_KEY = 'preflight-pro:theme';
 
+// In-page anchor scroll: offset for the sticky header + gap, eased over ~0.3s.
+const SCROLL_OFFSET = 60; // header (44) + breathing room
+function smoothScrollTo(targetY: number, duration = 300) {
+  const reduce = typeof matchMedia !== 'undefined'
+    && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const y = Math.max(0, targetY);
+  if (reduce) { window.scrollTo(0, y); return; }
+  const start = window.scrollY;
+  const change = y - start;
+  const t0 = performance.now();
+  const ease = (t: number) => 1 - Math.pow(1 - t, 3); // easeOutCubic
+  const step = (now: number) => {
+    const p = Math.min(1, (now - t0) / duration);
+    window.scrollTo(0, start + change * ease(p));
+    if (p < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
 // Crop a page preview to its trim box → the finished piece for the 3D view.
 function croppedToTrim(result: AnalysisResult, pageIdx: number): { canvas: HTMLCanvasElement; wMm: number; hMm: number } | null {
   const src = result.previews[pageIdx];
@@ -241,6 +260,25 @@ export default function Home() {
       setErrorMsg(e?.message ?? String(e));
       setPhase('error');
     }
+  }, []);
+
+  // In-page anchor links (landing nav / in-text): scroll with a header offset
+  // so the target isn't hidden, eased over 0.3s like the rest of the app.
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const a = (e.target as HTMLElement | null)?.closest?.('a[href^="#"]') as HTMLAnchorElement | null;
+      if (!a) return;
+      const id = a.getAttribute('href')!.slice(1);
+      const el = id ? document.getElementById(id) : null;
+      if (!el) return;
+      e.preventDefault();
+      const y = el.getBoundingClientRect().top + window.scrollY - SCROLL_OFFSET;
+      smoothScrollTo(y, 300);
+      history.replaceState(null, '', `#${id}`);
+    };
+    document.addEventListener('click', onClick);
+    return () => document.removeEventListener('click', onClick);
   }, []);
 
   // On the confirm screen, Enter runs the check — but not while a value field

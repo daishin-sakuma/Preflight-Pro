@@ -385,6 +385,8 @@ input[type="number"] { width: 76px; min-width: 0; }
   font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--text);
   margin: var(--space-8) 0 var(--space-4);
 }
+/* fallback offset for native hash navigation so headings clear the sticky header */
+.landing [id] { scroll-margin-top: 60px; }
 .landing h3 {
   font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--text);
   margin: var(--space-5) 0 var(--space-2);

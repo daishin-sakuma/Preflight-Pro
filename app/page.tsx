@@ -541,7 +541,7 @@ export default function Home() {
             </span>
             <span className="right">
               <button className="btn ghost small" onClick={() => setPhase('confirm')}>
-                Change settings &amp; re-check
+                Change settings
               </button>
               <button className="btn small" onClick={() => { setResult(null); fileRef.current = null; setPhase('upload'); }}>
                 Check another file

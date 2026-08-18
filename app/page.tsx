@@ -179,19 +179,42 @@ export default function Home() {
   const [pre, setPre] = useState<PrecheckInfo | null>(null);
   const [estimating, setEstimating] = useState(false);
 
-  const estimateMatchesSettings = useMemo(() => {
+  // settings the pre-check could infer from the file (size + bleed + dpi)
+  const detected = useMemo(() => {
+    if (!pre) return null;
+    const d: Partial<Settings> = {};
+    if (pre.size) {
+      if (pre.size.presetId) { d.paperId = pre.size.presetId; d.landscape = pre.size.landscape; }
+      else { d.paperId = 'custom'; d.customWmm = pre.size.wMm; d.customHmm = pre.size.hMm; d.landscape = false; }
+    }
+    // measured bleed from a PDF TrimBox (snap to the nearest offered option)
+    if (pre.kind === 'pdf' && pre.hasTrimBox && pre.bleedMm != null && pre.bleedMm > 0.3) {
+      d.bleedMm = [0, 2, 3, 5].reduce((a, b) => Math.abs(b - pre.bleedMm!) < Math.abs(a - pre.bleedMm!) ? b : a);
+    }
+    // embedded image resolution → required resolution
+    if (pre.image?.dpi) d.minDpi = pre.image.dpi;
+    return Object.keys(d).length ? d : null;
+  }, [pre]);
+
+  const sizeMatchesSettings = useMemo(() => {
     if (!pre?.size) return false;
     const cur = paperSizeMm(settings.paperId, settings.customWmm, settings.customHmm, settings.landscape);
     return Math.abs(cur.wMm - pre.size.wMm) <= 0.6 && Math.abs(cur.hMm - pre.size.hMm) <= 0.6;
   }, [pre, settings]);
 
-  const applyEstimate = useCallback(() => {
-    const est = pre?.size;
-    if (!est) return;
-    setSettings((s) => est.presetId
-      ? { ...s, paperId: est.presetId!, landscape: est.landscape }
-      : { ...s, paperId: 'custom', customWmm: est.wMm, customHmm: est.hMm, landscape: false });
-  }, [pre]);
+  // does every detected field already match the current settings?
+  const detectedMatchesSettings = useMemo(() => {
+    if (!detected) return true;
+    if ((detected.paperId !== undefined || detected.customWmm !== undefined) && !sizeMatchesSettings) return false;
+    if (detected.bleedMm !== undefined && detected.bleedMm !== settings.bleedMm) return false;
+    if (detected.minDpi !== undefined && detected.minDpi !== settings.minDpi) return false;
+    return true;
+  }, [detected, sizeMatchesSettings, settings.bleedMm, settings.minDpi]);
+
+  const applyDetected = useCallback(() => {
+    if (!detected) return;
+    setSettings((s) => ({ ...s, ...detected }));
+  }, [detected]);
 
   const summary = useMemo(() => {
     if (!result) return null;
@@ -307,11 +330,9 @@ export default function Home() {
                                   ? `${PAPER_PRESETS.find((p) => p.id === pre.size!.presetId)?.label ?? ''}${pre.size.landscape ? ' landscape' : ''}`
                                   : `${pre.size.wMm}×${pre.size.hMm}mm (custom)`}
                               </span>
-                              {estimateMatchesSettings ? (
-                                <span className="estOk">✓ Matches settings</span>
-                              ) : (
-                                <button className="btn small" onClick={applyEstimate}>Use this size</button>
-                              )}
+                              {sizeMatchesSettings
+                                ? <span className="estOk">✓ Matches settings</span>
+                                : <span className="pcWarn">≠ current settings</span>}
                               <span className="pcSub">{pre.size.sourceLabel}</span>
                             </>
                           ) : (
@@ -367,6 +388,19 @@ export default function Home() {
                           </>
                         )}
                       </div>
+                      {detected && !detectedMatchesSettings && (
+                        <div className="estApply">
+                          <button className="btn small" onClick={applyDetected}>Use detected settings</button>
+                          <span className="pcSub">
+                            Applies{' '}
+                            {[
+                              (detected.paperId !== undefined || detected.customWmm !== undefined) && 'size',
+                              detected.bleedMm !== undefined && `bleed ${detected.bleedMm}mm`,
+                              detected.minDpi !== undefined && `resolution ${detected.minDpi}dpi`,
+                            ].filter(Boolean).join(' · ')}
+                          </span>
+                        </div>
+                      )}
                       <div className="estSrc">Pre-check summary only. The full inspection runs after you press Start check.</div>
                     </>
                   ) : (

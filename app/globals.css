@@ -707,6 +707,8 @@ input[type="number"] { width: 76px; min-width: 0; }
   display: flex; flex-direction: column; gap: var(--space-4);
   overflow-y: auto;
 }
+/* keep cards at natural height so the panel scrolls instead of squashing them */
+.resultsScroll > .catCard { flex: 0 0 auto; }
 .catCard {
   background: var(--panel);
   border: 1px solid var(--border);

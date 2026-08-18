@@ -60,6 +60,7 @@ export default function Home() {
   const [pageIdx, setPageIdx] = useState(0);
   const [showTac, setShowTac] = useState(false);
   const [showGuides, setShowGuides] = useState(true);
+  const [showDims, setShowDims] = useState(true);
   const [markerKind, setMarkerKind] = useState<MarkerKind | null>(null);
   const [autoRotate, setAutoRotate] = useState(false);
   const [command, setCommand] = useState<ViewCommand>({ cmd: 'reset', n: 0 });
@@ -297,6 +298,7 @@ export default function Home() {
                   pageIdx={pageIdx}
                   showTac={showTac}
                   showGuides={showGuides}
+                  showDims={showDims}
                   markerKind={markerKind}
                 />
               )}
@@ -323,7 +325,10 @@ export default function Home() {
                   <button className="btn ghost small" onClick={() => setCommand((c) => ({ cmd: 'front', n: c.n + 1 }))}>正面</button>
                   <button className="btn ghost small" onClick={() => setCommand((c) => ({ cmd: 'back', n: c.n + 1 }))}>背面</button>
                   <button className="btn ghost small" onClick={() => setCommand((c) => ({ cmd: 'reset', n: c.n + 1 }))}>リセット</button>
-                  <span className="note">ドラッグで回転 / ホイールで拡大縮小 / 右ドラッグで移動</span>
+                  <span className="note">
+                    {paper3d && `仕上がり ${Math.round(paper3d.wMm)}×${Math.round(paper3d.hMm)}mm ・ `}
+                    ドラッグで回転 / ホイールで拡大縮小 / 右ドラッグで移動
+                  </span>
                 </>
               )}
               {tab === '2d' && (
@@ -331,6 +336,10 @@ export default function Home() {
                   <button className={`btn ghost small ${showGuides ? 'active' : ''}`}
                     onClick={() => setShowGuides((v) => !v)}>
                     ガイド表示
+                  </button>
+                  <button className={`btn ghost small ${showDims ? 'active' : ''}`}
+                    onClick={() => setShowDims((v) => !v)}>
+                    寸法表示
                   </button>
                   <button className={`btn ghost small ${showTac ? 'active' : ''}`}
                     onClick={() => setShowTac((v) => !v)}>

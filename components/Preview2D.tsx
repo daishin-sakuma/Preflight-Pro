@@ -23,10 +23,11 @@ interface Props {
   pageIdx: number;
   showTac: boolean;
   showGuides: boolean;
+  showDims: boolean;               // dimension annotations (寸法表示)
   markerKind: MarkerKind | null;   // active problem-spot overlay
 }
 
-export default function Preview2D({ result, settings, pageIdx, showTac, showGuides, markerKind }: Props) {
+export default function Preview2D({ result, settings, pageIdx, showTac, showGuides, showDims, markerKind }: Props) {
   const baseRef = useRef<HTMLCanvasElement>(null);
   const overRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -69,20 +70,20 @@ export default function Preview2D({ result, settings, pageIdx, showTac, showGuid
       }
     }
 
-    if (showGuides) {
-      // trim box: explicit, or assumed centered ordered-size
-      let trim = geom.trimBoxPt as [number, number, number, number] | undefined;
-      if (!trim) {
-        const paper = paperSizeMm(settings.paperId, settings.customWmm, settings.customHmm, settings.landscape);
-        const wPt = paper.wMm * PT_PER_MM, hPt = paper.hMm * PT_PER_MM;
-        const pw = vb[2] - vb[0], ph = vb[3] - vb[1];
-        const fits = (pw - wPt) >= -1 && (ph - hPt) >= -1 && (pw - wPt) < 30 * PT_PER_MM;
-        if (fits) {
-          const mx = (pw - wPt) / 2, my = (ph - hPt) / 2;
-          trim = [vb[0] + mx, vb[1] + my, vb[2] - mx, vb[3] - my];
-        }
+    // trim box: explicit, or assumed centered ordered-size (shared by guides & dims)
+    let trim = geom.trimBoxPt as [number, number, number, number] | undefined;
+    if (!trim) {
+      const paper = paperSizeMm(settings.paperId, settings.customWmm, settings.customHmm, settings.landscape);
+      const wPt = paper.wMm * PT_PER_MM, hPt = paper.hMm * PT_PER_MM;
+      const pw = vb[2] - vb[0], ph = vb[3] - vb[1];
+      const fits = (pw - wPt) >= -1 && (ph - hPt) >= -1 && (pw - wPt) < 30 * PT_PER_MM;
+      if (fits) {
+        const mx = (pw - wPt) / 2, my = (ph - hPt) / 2;
+        trim = [vb[0] + mx, vb[1] + my, vb[2] - mx, vb[3] - my];
       }
+    }
 
+    if (showGuides) {
       if (trim) {
         const t = rectPx(trim);
         // bleed zone shading (outside trim)
@@ -130,6 +131,80 @@ export default function Preview2D({ result, settings, pageIdx, showTac, showGuid
       }
     }
 
+    // ---- dimension annotations (寸法表示) ----
+    if (showDims) {
+      const mm = (pt: number) => {
+        const v = pt * (25.4 / 72);
+        return (Math.round(v * 10) / 10).toLocaleString('ja-JP');
+      };
+      const chip = (x: number, y: number, text: string, color: string) => {
+        ctx.font = 'bold 14px sans-serif';
+        const w = ctx.measureText(text).width + 12, h = 21;
+        const bx = Math.max(2, Math.min(x - w / 2, over.width - w - 2));
+        const by = Math.max(2, Math.min(y - h / 2, over.height - h - 2));
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.roundRect(bx, by, w, h, 4);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, bx + 6, by + h / 2 + 0.5);
+        ctx.textBaseline = 'alphabetic';
+      };
+      const dimLine = (x1: number, y1: number, x2: number, y2: number, color: string) => {
+        ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+        const head = (x: number, y: number, dx: number, dy: number) => {
+          const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(x + dx * 9 - dy * 3.5, y + dy * 9 + dx * 3.5);
+          ctx.lineTo(x + dx * 9 + dy * 3.5, y + dy * 9 - dx * 3.5);
+          ctx.closePath(); ctx.fill();
+        };
+        head(x1, y1, x2 - x1, y2 - y1);
+        head(x2, y2, x1 - x2, y1 - y2);
+      };
+
+      const TRIM_C = '#e11d48', BLEED_C = '#2f6fd6', SAFE_C = '#0d9488', DATA_C = '#3f434d';
+
+      if (trim) {
+        const t = rectPx(trim);
+        const trimWpt = trim[2] - trim[0];
+        const trimHpt = trim[3] - trim[1];
+        // 仕上がり width (top, inside the trim)
+        const wy = t.y + 26;
+        dimLine(t.x, wy, t.x + t.w, wy, TRIM_C);
+        chip(t.x + t.w / 2, wy, `仕上がり ${mm(trimWpt)}mm`, TRIM_C);
+        // 仕上がり height (left, inside the trim)
+        const hx = t.x + 26;
+        dimLine(hx, t.y, hx, t.y + t.h, TRIM_C);
+        chip(hx + 6, t.y + t.h / 2, `${mm(trimHpt)}mm`, TRIM_C);
+
+        // 塗り足し widths (actual measured distances trim -> page edge)
+        const bTopPt = vb[3] - trim[3];
+        const bLeftPt = trim[0] - vb[0];
+        if (bTopPt * (25.4 / 72) > 0.3) {
+          const bx = t.x + t.w - 60;
+          dimLine(bx, 0, bx, t.y, BLEED_C);
+          chip(bx, t.y + 16, `塗り足し ${mm(bTopPt)}mm`, BLEED_C);
+        }
+        if (bLeftPt * (25.4 / 72) > 0.3) {
+          const by = t.y + t.h - 60;
+          dimLine(0, by, t.x, by, BLEED_C);
+          chip(t.x + 40, by, `${mm(bLeftPt)}mm`, BLEED_C);
+        }
+
+        // 安全域 label (on the safe-area line)
+        const inset = settings.safeMarginMm * PT_PER_MM * s;
+        chip(t.x + t.w / 2, t.y + inset + 14, `文字安全域 (仕上がりから${settings.safeMarginMm}mm内側)`, SAFE_C);
+      }
+
+      // データ全体サイズ (bottom center)
+      chip(over.width / 2, over.height - 16,
+        `データサイズ ${mm(vb[2] - vb[0])}×${mm(vb[3] - vb[1])}mm${trim ? ' (塗り足し込み)' : ''}`, DATA_C);
+    }
+
     // ---- problem-spot markers (該当箇所の表示) ----
     if (markerKind) {
       const style = MARKER_STYLE[markerKind];
@@ -162,7 +237,7 @@ export default function Preview2D({ result, settings, pageIdx, showTac, showGuid
         ctx.restore();
       }
     }
-  }, [result, settings, pageIdx, showTac, showGuides, markerKind]);
+  }, [result, settings, pageIdx, showTac, showGuides, showDims, markerKind]);
 
   return (
     <div className="stage2d" ref={wrapRef}>

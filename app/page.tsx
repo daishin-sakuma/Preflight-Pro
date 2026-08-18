@@ -310,7 +310,7 @@ export default function Home() {
           <span className="mark">Preflight</span>
         </div>
         <button
-          className="btn ghost small themeToggle"
+          className="themeToggle"
           onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
           title="Toggle light / dark mode"
           aria-label="Toggle light / dark mode"

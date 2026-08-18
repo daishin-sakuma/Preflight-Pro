@@ -185,8 +185,12 @@ button { font-family: inherit; cursor: pointer; }
 .themeToggle {
   margin-left: auto;
   display: inline-flex; align-items: center; justify-content: center;
-  width: 30px; height: 30px; padding: 0;   /* icon-only square button */
+  width: 30px; height: 30px; padding: 0;   /* bare icon button, no outline */
+  background: none; border: none;
+  color: var(--muted);
+  transition: color .12s;
 }
+.themeToggle:hover { color: var(--text); }
 .themeIcon { display: inline-flex; width: 16px; height: 16px; }
 .themeIcon svg { width: 16px; height: 16px; display: block; }
 

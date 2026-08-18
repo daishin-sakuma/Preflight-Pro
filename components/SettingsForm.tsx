@@ -14,14 +14,14 @@ export default function SettingsForm({ settings, onChange: set }: Props) {
   return (
     <>
       <div className="formRow">
-        <label>仕上がりサイズ</label>
+        <label>Finished size</label>
         <select value={settings.paperId} onChange={(e) => set('paperId', e.target.value)}>
           {PAPER_PRESETS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
         </select>
       </div>
       {settings.paperId === 'custom' && (
         <div className="formRow">
-          <label>カスタムサイズ (mm)</label>
+          <label>Custom size (mm)</label>
           <span className="inline">
             <input type="number" value={settings.customWmm} min={10}
               onChange={(e) => set('customWmm', +e.target.value)} />
@@ -32,35 +32,35 @@ export default function SettingsForm({ settings, onChange: set }: Props) {
         </div>
       )}
       <div className="formRow">
-        <label>向き</label>
+        <label>Orientation</label>
         <select value={settings.landscape ? 'l' : 'p'} onChange={(e) => set('landscape', e.target.value === 'l')}>
-          <option value="p">縦 (ポートレート)</option>
-          <option value="l">横 (ランドスケープ)</option>
+          <option value="p">Portrait</option>
+          <option value="l">Landscape</option>
         </select>
       </div>
       <div className="formRow">
-        <label>塗り足し幅<span className="hint">通常3mm</span></label>
+        <label>Bleed<span className="hint">Usually 3mm</span></label>
         <select value={settings.bleedMm} onChange={(e) => set('bleedMm', +e.target.value)}>
           {[0, 2, 3, 5].map((v) => <option key={v} value={v}>{v}mm</option>)}
         </select>
       </div>
       <div className="formRow">
-        <label>総インキ量上限<span className="hint">コート紙300% / 上質紙250%が目安</span></label>
+        <label>Total ink limit<span className="hint">Coated ~300% / uncoated ~250%</span></label>
         <select value={settings.tacLimit} onChange={(e) => set('tacLimit', +e.target.value)}>
           {TAC_CHOICES.map((v) => <option key={v} value={v}>{v}%</option>)}
         </select>
       </div>
       <div className="formRow">
-        <label>必要解像度<span className="hint">カラー/グレー: 300〜350dpi</span></label>
+        <label>Required resolution<span className="hint">Color/gray: 300–350dpi</span></label>
         <select value={settings.minDpi} onChange={(e) => set('minDpi', +e.target.value)}>
           {DPI_CHOICES.map((v) => <option key={v} value={v}>{v}dpi</option>)}
         </select>
       </div>
       <div className="formRow">
-        <label>RGBの扱い</label>
+        <label>RGB handling</label>
         <select value={settings.requireCmyk ? 'e' : 'w'} onChange={(e) => set('requireCmyk', e.target.value === 'e')}>
-          <option value="e">エラーにする (CMYK必須)</option>
-          <option value="w">注意にとどめる (RGB入稿可)</option>
+          <option value="e">Treat as error (CMYK required)</option>
+          <option value="w">Warn only (RGB allowed)</option>
         </select>
       </div>
     </>

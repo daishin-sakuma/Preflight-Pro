@@ -2,9 +2,9 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Preflight Pro — 入稿データチェック・校正ツール',
+  title: 'Preflight Pro — print data check & proofing',
   description:
-    'PDF / Illustrator / JPEG / PNG の印刷入稿データをブラウザ内でプリフライトチェック。RGB検出・総インキ量・塗り足し・オーバープリント・解像度などを解析し、3Dプレビューで確認できます。',
+    'Preflight PDF / Illustrator / JPEG / PNG print data right in your browser. Checks RGB, total ink coverage, bleed, overprint, resolution and more, with a 3D preview.',
 };
 
 export const viewport: Viewport = {
@@ -14,7 +14,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ja" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <body>
         {/* apply the stored theme before first paint (no flash of wrong theme) */}
         <script

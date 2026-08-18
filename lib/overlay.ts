@@ -9,12 +9,12 @@ import { paperSizeMm } from './presets.ts';
 
 export const MARKER_STYLE: Record<MarkerKind, { color: string; label: string }> = {
   rgb: { color: '#ff9f43', label: 'RGB' },
-  'white-op': { color: '#ff4fd8', label: '白ノセ疑い' },
-  tac: { color: '#a78bfa', label: 'インキ量超過' },
-  'rich-black': { color: '#facc15', label: 'リッチブラック文字' },
-  hairline: { color: '#38bdf8', label: '極細線' },
-  font: { color: '#ff6161', label: '未埋め込みフォント' },
-  overprint: { color: '#2dd4bf', label: 'オーバープリント (ノセ)' },
+  'white-op': { color: '#ff4fd8', label: 'White overprint' },
+  tac: { color: '#a78bfa', label: 'Ink over limit' },
+  'rich-black': { color: '#facc15', label: 'Rich-black text' },
+  hairline: { color: '#38bdf8', label: 'Hairline' },
+  font: { color: '#ff6161', label: 'Unembedded font' },
+  overprint: { color: '#2dd4bf', label: 'Overprint' },
 };
 
 export interface OverlayArgs {
@@ -165,22 +165,22 @@ export function renderOverlays(over: HTMLCanvasElement, args: OverlayArgs): void
         const t = rectPx(trim);
         const trimWpt = trim[2] - trim[0];
         const trimHpt = trim[3] - trim[1];
-        // 仕上がり width (top, inside the trim)
+        // trim width (top, inside the trim)
         const wy = t.y + 26 * ui;
         dimLine(t.x, wy, t.x + t.w, wy, TRIM_C);
-        chip(t.x + t.w / 2, wy, `仕上がり ${mm(trimWpt)}mm`, TRIM_C);
-        // 仕上がり height (left, inside the trim)
+        chip(t.x + t.w / 2, wy, `Trim ${mm(trimWpt)}mm`, TRIM_C);
+        // trim height (left, inside the trim)
         const hx = t.x + 26 * ui;
         dimLine(hx, t.y, hx, t.y + t.h, TRIM_C);
         chip(hx + 6 * ui, t.y + t.h / 2, `${mm(trimHpt)}mm`, TRIM_C);
 
-        // 塗り足し widths (actual measured distances trim -> page edge)
+        // bleed widths (actual measured distances trim -> page edge)
         const bTopPt = vb[3] - trim[3];
         const bLeftPt = trim[0] - vb[0];
         if (bTopPt * (25.4 / 72) > 0.3) {
           const bx = t.x + t.w - 60 * ui;
           dimLine(bx, 0, bx, t.y, BLEED_C);
-          chip(bx, t.y + 16 * ui, `塗り足し ${mm(bTopPt)}mm`, BLEED_C);
+          chip(bx, t.y + 16 * ui, `Bleed ${mm(bTopPt)}mm`, BLEED_C);
         }
         if (bLeftPt * (25.4 / 72) > 0.3) {
           const by = t.y + t.h - 60 * ui;
@@ -188,14 +188,14 @@ export function renderOverlays(over: HTMLCanvasElement, args: OverlayArgs): void
           chip(t.x + 40 * ui, by, `${mm(bLeftPt)}mm`, BLEED_C);
         }
 
-        // 安全域 label (on the safe-area line)
+        // safe-area label (on the safe-area line)
         const inset = settings.safeMarginMm * PT_PER_MM * s;
-        chip(t.x + t.w / 2, t.y + inset + 14 * ui, `文字安全域 (仕上がりから${settings.safeMarginMm}mm内側)`, SAFE_C);
+        chip(t.x + t.w / 2, t.y + inset + 14 * ui, `Safe area (${settings.safeMarginMm}mm inside trim)`, SAFE_C);
       }
 
-      // データ全体サイズ (bottom center)
+      // full data size (bottom center)
       chip(over.width / 2, over.height - 16 * ui,
-        `データサイズ ${mm(vb[2] - vb[0])}×${mm(vb[3] - vb[1])}mm${trim ? ' (塗り足し込み)' : ''}`, DATA_C);
+        `Data size ${mm(vb[2] - vb[0])}×${mm(vb[3] - vb[1])}mm${trim ? ' (incl. bleed)' : ''}`, DATA_C);
     }
 
     // ---- problem-spot markers: callout chips with leader arrows (該当箇所) ----

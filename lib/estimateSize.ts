@@ -66,7 +66,7 @@ function sizeFromBoxes(
     return {
       wMm: w, hMm: h,
       presetId: m?.presetId ?? null, landscape: m?.landscape ?? false,
-      sourceLabel: 'TrimBox (仕上がり線) から算出',
+      sourceLabel: 'From TrimBox (trim line)',
     };
   }
   if (media) {
@@ -75,16 +75,16 @@ function sizeFromBoxes(
     const bw = r1(mw - bleedMm * 2), bh = r1(mh - bleedMm * 2);
     const mBleed = matchPreset(bw, bh);
     if (mBleed) {
-      return { wMm: bw, hMm: bh, ...mBleed, sourceLabel: `ページサイズ − 塗り足し${bleedMm}mm×2 から算出` };
+      return { wMm: bw, hMm: bh, ...mBleed, sourceLabel: `Page size − ${bleedMm}mm bleed ×2` };
     }
     const pw = r1(mw), ph = r1(mh);
     const mPlain = matchPreset(pw, ph);
     if (mPlain) {
-      return { wMm: pw, hMm: ph, ...mPlain, sourceLabel: 'ページサイズから算出 (塗り足しが無い可能性があります)' };
+      return { wMm: pw, hMm: ph, ...mPlain, sourceLabel: 'From page size (bleed may be missing)' };
     }
     return {
       wMm: bw, hMm: bh, presetId: null, landscape: false,
-      sourceLabel: `ページサイズ − 塗り足し${bleedMm}mm×2 から算出`,
+      sourceLabel: `Page size − ${bleedMm}mm bleed ×2`,
     };
   }
   return null;
@@ -149,13 +149,13 @@ export function precheckFile(bytes: Uint8Array, bleedMm = 3): PrecheckInfo | nul
       const bw = r1(dw - bleedMm * 2), bh = r1(dh - bleedMm * 2);
       const mBleed = matchPreset(bw, bh);
       if (mBleed) {
-        size = { wMm: bw, hMm: bh, ...mBleed, sourceLabel: `画像サイズ (${info.embeddedDpi}dpi) − 塗り足し${bleedMm}mm×2 から算出` };
+        size = { wMm: bw, hMm: bh, ...mBleed, sourceLabel: `Image size (${info.embeddedDpi}dpi) − ${bleedMm}mm bleed ×2` };
       } else {
         const pw = r1(dw), ph = r1(dh);
         const mPlain = matchPreset(pw, ph);
         size = mPlain
-          ? { wMm: pw, hMm: ph, ...mPlain, sourceLabel: `画像サイズ (${info.embeddedDpi}dpi) から算出` }
-          : { wMm: pw, hMm: ph, presetId: null, landscape: false, sourceLabel: `画像サイズ (${info.embeddedDpi}dpi) から算出 ※塗り足し込みの可能性あり` };
+          ? { wMm: pw, hMm: ph, ...mPlain, sourceLabel: `From image size (${info.embeddedDpi}dpi)` }
+          : { wMm: pw, hMm: ph, presetId: null, landscape: false, sourceLabel: `From image size (${info.embeddedDpi}dpi) — may include bleed` };
       }
     }
 

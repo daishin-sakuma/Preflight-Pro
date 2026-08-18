@@ -7,7 +7,7 @@ import type { Finding, Severity, CategoryId } from '@/lib/types';
 import { CATEGORY_LABELS, CATEGORY_ORDER } from '@/lib/types';
 
 const SEV_RANK: Record<Severity, number> = { ok: 0, info: 1, warning: 2, error: 3 };
-const SEV_LABEL: Record<Severity, string> = { ok: 'OK', info: '情報', warning: '注意', error: 'エラー' };
+const SEV_LABEL: Record<Severity, string> = { ok: 'OK', info: 'INFO', warning: 'WARN', error: 'ERROR' };
 
 export function worstSeverity(items: Finding[]): Severity {
   return items.reduce<Severity>(
@@ -61,7 +61,7 @@ export default function ResultsPanel({ findings, onLocate, activeMarkerKind }: P
                     </div>
                     <div className="fDetail">{x.detail}</div>
                     {x.pages && x.pages.length > 0 && (
-                      <div className="fPages">該当ページ: {x.pages.join(', ')}</div>
+                      <div className="fPages">Pages: {x.pages.join(', ')}</div>
                     )}
                     {x.markerKind && onLocate && (
                       <div className="fLocate">
@@ -69,7 +69,7 @@ export default function ResultsPanel({ findings, onLocate, activeMarkerKind }: P
                           className={`locateBtn ${activeMarkerKind === x.markerKind ? 'on' : ''}`}
                           onClick={() => onLocate(x)}
                         >
-                          ◎ 該当箇所を表示
+                          ◎ Locate on preview
                         </button>
                       </div>
                     )}

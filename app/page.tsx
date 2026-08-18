@@ -18,7 +18,7 @@ const Preview3D = dynamic(() => import('@/components/Preview3D'), { ssr: false }
 type Phase = 'upload' | 'confirm' | 'analyzing' | 'result' | 'error';
 
 const FORMAT_LABELS: Record<string, string> = {
-  pdf: 'PDF', ai: 'Illustrator (PDF互換)', jpg: 'JPEG', jpeg: 'JPEG', png: 'PNG',
+  pdf: 'PDF', ai: 'Illustrator (PDF-compatible)', jpg: 'JPEG', jpeg: 'JPEG', png: 'PNG',
 };
 
 // Check settings persist across sessions (incl. custom size).
@@ -111,7 +111,7 @@ export default function Home() {
     fileRef.current = file;
     setPhase('analyzing');
     setMarkerKind(null);
-    setProgress('ファイルを読み込み中…');
+    setProgress('Loading file…');
     try {
       const { analyzeFile } = await import('@/lib/analyze');
       const r = await analyzeFile(file, s, setProgress);
@@ -126,7 +126,7 @@ export default function Home() {
   }, []);
 
   // Selecting a file moves to the settings-confirmation step; the check only
-  // starts when the user explicitly presses チェックを開始. Size estimation
+  // starts when the user explicitly presses Start check. Size estimation
   // (from TrimBox / image DPI) runs in the background for the confirm screen.
   const onFiles = useCallback((files: FileList | null) => {
     if (!files || !files[0]) return;
@@ -230,16 +230,16 @@ export default function Home() {
         <button
           className="btn ghost small themeToggle"
           onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
-          title="テーマ切替"
+          title="Toggle theme"
         >
-          {theme === 'dark' ? '☀ ライトモード' : '☾ ダークモード'}
+          {theme === 'dark' ? '☀ Light' : '☾ Dark'}
         </button>
       </header>
 
       {phase === 'upload' && (
         <div className="uploadWrap single">
           <div className="card">
-            <div className="cardHead">入稿データのアップロード</div>
+            <div className="cardHead">Upload print data</div>
             <div className="cardBody">
               <div
                 className={`dropzone ${drag ? 'drag' : ''}`}
@@ -248,10 +248,10 @@ export default function Home() {
                 onDrop={(e) => { e.preventDefault(); setDrag(false); onFiles(e.dataTransfer.files); }}
               >
                 <div style={{ fontSize: 40 }}>📄</div>
-                <div className="big">ファイルをドラッグ＆ドロップ</div>
-                <div>または</div>
+                <div className="big">Drag &amp; drop a file</div>
+                <div>or</div>
                 <button className="btn" onClick={() => inputRef.current?.click()}>
-                  ファイルを選択
+                  Choose file
                 </button>
                 <input
                   ref={inputRef}
@@ -261,9 +261,9 @@ export default function Home() {
                   onChange={(e) => onFiles(e.target.files)}
                 />
                 <div className="formats">
-                  対応形式: PDF / Illustrator (.ai ※PDF互換保存) / JPEG / PNG<br />
-                  解析はすべてブラウザ内で行われ、データが外部に送信されることはありません。<br />
-                  アップロード後、次の画面でチェック設定 (サイズ・塗り足し・インキ量など) を確認できます。
+                  Supported: PDF / Illustrator (.ai, saved PDF-compatible) / JPEG / PNG<br />
+                  All analysis runs in your browser — your files are never uploaded to a server.<br />
+                  After selecting a file, you can review the check settings (size, bleed, ink, etc.) on the next screen.
                 </div>
               </div>
             </div>
@@ -275,114 +275,114 @@ export default function Home() {
         <div className="uploadWrap">
           <div>
             <div className="card">
-              <div className="cardHead">アップロードしたファイル</div>
+              <div className="cardHead">Uploaded file</div>
               <div className="cardBody">
                 <div className="fileSummary">
                   <span className="fileIcon">📄</span>
                   <div>
                     <div className="fsName">{fileRef.current.name}</div>
                     <div className="fsMeta">
-                      {FORMAT_LABELS[fileRef.current.name.split('.').pop()?.toLowerCase() ?? ''] ?? '不明な形式'}
-                      {' ・ '}{(fileRef.current.size / 1024 / 1024).toFixed(2)}MB
+                      {FORMAT_LABELS[fileRef.current.name.split('.').pop()?.toLowerCase() ?? ''] ?? 'Unknown format'}
+                      {' · '}{(fileRef.current.size / 1024 / 1024).toFixed(2)}MB
                     </div>
                   </div>
                   <button className="btn ghost small" style={{ marginLeft: 'auto' }}
                     onClick={() => { fileRef.current = null; setPhase('upload'); }}>
-                    ファイルを選び直す
+                    Choose another file
                   </button>
                 </div>
                 <div className="estimateBox">
                   {estimating ? (
-                    <span className="estWait">データを精査中…</span>
+                    <span className="estWait">Inspecting file…</span>
                   ) : pre ? (
                     <>
-                      <div className="estHead">データからの読み取り結果 (事前精査)</div>
+                      <div className="estHead">Detected from the file (pre-check)</div>
                       <div className="pcGrid">
-                        <span className="pcLabel">推定仕上がり</span>
+                        <span className="pcLabel">Est. finished size</span>
                         <span className="pcValue">
                           {pre.size ? (
                             <>
                               <span className="estValue">
                                 {pre.size.presetId
-                                  ? `${PAPER_PRESETS.find((p) => p.id === pre.size!.presetId)?.label ?? ''}${pre.size.landscape ? ' 横' : ''}`
-                                  : `${pre.size.wMm}×${pre.size.hMm}mm (カスタム)`}
+                                  ? `${PAPER_PRESETS.find((p) => p.id === pre.size!.presetId)?.label ?? ''}${pre.size.landscape ? ' landscape' : ''}`
+                                  : `${pre.size.wMm}×${pre.size.hMm}mm (custom)`}
                               </span>
                               {estimateMatchesSettings ? (
-                                <span className="estOk">✓ 設定と一致</span>
+                                <span className="estOk">✓ Matches settings</span>
                               ) : (
-                                <button className="btn small" onClick={applyEstimate}>この推定サイズを使用</button>
+                                <button className="btn small" onClick={applyEstimate}>Use this size</button>
                               )}
                               <span className="pcSub">{pre.size.sourceLabel}</span>
                             </>
                           ) : (
-                            <span className="pcDim">推定不可 (解像度情報なし) — 右の設定で指定してください</span>
+                            <span className="pcDim">Could not estimate (no resolution info) — set it in the settings panel</span>
                           )}
                         </span>
 
-                        <span className="pcLabel">塗り足し</span>
+                        <span className="pcLabel">Bleed</span>
                         <span className="pcValue">
                           {pre.kind === 'pdf' ? (
                             pre.hasTrimBox && pre.bleedMm !== null ? (
                               pre.bleedMm >= settings.bleedMm - 0.3
-                                ? <span className="pcOk">約{pre.bleedMm}mm ✓</span>
+                                ? <span className="pcOk">~{pre.bleedMm}mm ✓</span>
                                 : pre.bleedMm > 0.3
-                                  ? <span className="pcWarn">約{pre.bleedMm}mm (必要: {settings.bleedMm}mm) ⚠</span>
-                                  : <span className="pcWarn">なし ⚠</span>
-                            ) : <span className="pcDim">TrimBox未設定のため測定不可 (本チェックでサイズから判定)</span>
-                          ) : <span className="pcDim">画像入稿のため本チェックで判定</span>}
+                                  ? <span className="pcWarn">~{pre.bleedMm}mm (need {settings.bleedMm}mm) ⚠</span>
+                                  : <span className="pcWarn">None ⚠</span>
+                            ) : <span className="pcDim">No TrimBox — will be judged from size in the full check</span>
+                          ) : <span className="pcDim">Raster file — judged in the full check</span>}
                         </span>
 
-                        <span className="pcLabel">ページ数</span>
+                        <span className="pcLabel">Pages</span>
                         <span className="pcValue">{pre.pageCount ?? '—'}</span>
 
-                        <span className="pcLabel">カラー</span>
+                        <span className="pcLabel">Color</span>
                         <span className="pcValue">
                           {pre.colorHint === 'cmyk' && <span className="pcOk">CMYK ✓</span>}
-                          {pre.colorHint === 'rgb-mixed' && <span className="pcWarn">RGBを含む ⚠</span>}
-                          {pre.colorHint === 'gray' && 'グレースケール'}
-                          {pre.colorHint === 'unknown' && <span className="pcDim">判定不能</span>}
+                          {pre.colorHint === 'rgb-mixed' && <span className="pcWarn">Contains RGB ⚠</span>}
+                          {pre.colorHint === 'gray' && 'Grayscale'}
+                          {pre.colorHint === 'unknown' && <span className="pcDim">Undetermined</span>}
                         </span>
 
                         {pre.image && (
                           <>
-                            <span className="pcLabel">画像情報</span>
+                            <span className="pcLabel">Image</span>
                             <span className="pcValue">
-                              {pre.image.format.toUpperCase()} ・ {pre.image.colorSpace} ・ {pre.image.width}×{pre.image.height}px
-                              {pre.image.dpi ? ` ・ ${pre.image.dpi}dpi` : ' ・ 解像度情報なし'}
-                              {pre.image.hasAlpha && <span className="pcWarn"> ・ 透明あり ⚠</span>}
+                              {pre.image.format.toUpperCase()} · {pre.image.colorSpace} · {pre.image.width}×{pre.image.height}px
+                              {pre.image.dpi ? ` · ${pre.image.dpi}dpi` : ' · no resolution info'}
+                              {pre.image.hasAlpha && <span className="pcWarn"> · has transparency ⚠</span>}
                             </span>
                           </>
                         )}
 
                         {(pre.encrypted || pre.fontsNotEmbedded > 0 || pre.spotColors > 0) && (
                           <>
-                            <span className="pcLabel">注意</span>
+                            <span className="pcLabel">Warnings</span>
                             <span className="pcValue pcWarn">
                               {[
-                                pre.encrypted && '暗号化あり',
-                                pre.fontsNotEmbedded > 0 && `未埋め込みフォント ${pre.fontsNotEmbedded}書体`,
-                                pre.spotColors > 0 && `特色 ${pre.spotColors}色`,
-                              ].filter(Boolean).join(' ・ ')} ⚠
+                                pre.encrypted && 'Encrypted',
+                                pre.fontsNotEmbedded > 0 && `${pre.fontsNotEmbedded} unembedded font(s)`,
+                                pre.spotColors > 0 && `${pre.spotColors} spot color(s)`,
+                              ].filter(Boolean).join(' · ')} ⚠
                             </span>
                           </>
                         )}
                       </div>
-                      <div className="estSrc">※事前精査の概要です。詳細な検査は「チェックを開始」後に実施されます。</div>
+                      <div className="estSrc">Pre-check summary only. The full inspection runs after you press Start check.</div>
                     </>
                   ) : (
                     <span className="estNone">
-                      データを精査できませんでした。右の設定で仕上がりサイズを指定し、そのままチェックを開始してください。
+                      Could not inspect the file. Set the finished size in the settings panel and start the check.
                     </span>
                   )}
                 </div>
                 <div className="confirmHint">
-                  右のチェック設定 (仕上がりサイズ・塗り足し・総インキ量の上限など) が
-                  注文内容と合っているか確認してから、チェックを開始してください。
-                  設定は次回のために自動保存され、結果画面からも変更して再チェックできます。
+                  Make sure the check settings (finished size, bleed, ink limit, etc.) match
+                  your order before starting. Settings are saved for next time and can also be
+                  changed on the results screen to re-run the check.
                 </div>
                 <div className="confirmActions">
                   <button className="btn big" onClick={() => fileRef.current && runAnalysis(fileRef.current, settings)}>
-                    この設定でチェックを開始
+                    Start check
                   </button>
                 </div>
               </div>
@@ -390,7 +390,7 @@ export default function Home() {
           </div>
 
           <div className="card">
-            <div className="cardHead">チェック設定</div>
+            <div className="cardHead">Check settings</div>
             <div className="cardBody">
               <SettingsForm settings={settings} onChange={set} />
             </div>
@@ -401,17 +401,17 @@ export default function Home() {
       {phase === 'analyzing' && (
         <div className="analyzing">
           <div className="spinner" />
-          <h2>データチェック中…</h2>
+          <h2>Checking data…</h2>
           <div className="msg">{progress}</div>
         </div>
       )}
 
       {phase === 'error' && (
         <div className="errorBox">
-          <h2>チェックできませんでした</h2>
+          <h2>Couldn’t run the check</h2>
           <p>{errorMsg}</p>
           <p style={{ marginTop: 18 }}>
-            <button className="btn" onClick={() => setPhase('upload')}>アップロードに戻る</button>
+            <button className="btn" onClick={() => setPhase('upload')}>Back to upload</button>
           </p>
         </div>
       )}
@@ -421,28 +421,28 @@ export default function Home() {
           <div className="fileBar">
             <span className="name">{result.fileName}</span>
             <span className="meta">
-              {(result.fileSize / 1024 / 1024).toFixed(2)}MB ・ {result.pageCount}ページ ・
-              {result.kind === 'pdf' ? ' PDF' : ` ${result.imageInfo?.format.toUpperCase()}画像`}
+              {(result.fileSize / 1024 / 1024).toFixed(2)}MB · {result.pageCount} page{result.pageCount > 1 ? 's' : ''} ·
+              {result.kind === 'pdf' ? ' PDF' : ` ${result.imageInfo?.format.toUpperCase()} image`}
             </span>
             <span className="right">
               <button className="btn ghost small" onClick={() => setPhase('confirm')}>
-                設定を変えて再チェック
+                Change settings &amp; re-check
               </button>
               <button className="btn small" onClick={() => { setResult(null); fileRef.current = null; setPhase('upload'); }}>
-                別のファイルをチェック
+                Check another file
               </button>
             </span>
           </div>
 
           <div className={`summaryBanner ${summary.errs ? 'fail' : summary.warns ? 'warn' : 'pass'}`}>
             {summary.errs
-              ? `修正が必要な問題が見つかりました`
+              ? `Problems were found that need fixing`
               : summary.warns
-                ? `入稿は可能ですが、確認をおすすめする項目があります`
-                : `すべてのチェックに合格しました`}
+                ? `Ready to submit, but some items are worth reviewing`
+                : `All checks passed`}
             <span className="chips">
-              {summary.errs > 0 && <span className="chip err">エラー {summary.errs}</span>}
-              {summary.warns > 0 && <span className="chip warn">注意 {summary.warns}</span>}
+              {summary.errs > 0 && <span className="chip err">Errors {summary.errs}</span>}
+              {summary.warns > 0 && <span className="chip warn">Warnings {summary.warns}</span>}
               <span className="chip ok">OK {summary.oks}</span>
             </span>
           </div>
@@ -450,8 +450,8 @@ export default function Home() {
           <div className="previewCol">
           <div className="card previewCard">
             <div className="previewTabs">
-              <button className={tab === '3d' ? 'on' : ''} onClick={() => setTab('3d')}>3Dプレビュー</button>
-              <button className={tab === '2d' ? 'on' : ''} onClick={() => setTab('2d')}>2D校正ビュー</button>
+              <button className={tab === '3d' ? 'on' : ''} onClick={() => setTab('3d')}>3D preview</button>
+              <button className={tab === '2d' ? 'on' : ''} onClick={() => setTab('2d')}>2D proof</button>
             </div>
             <div className="previewStage">
               {tab === '3d' && paper3d && (
@@ -483,7 +483,7 @@ export default function Home() {
                   <select value={pageIdx} onChange={(e) => setPageIdx(+e.target.value)}>
                     {result.previews.map((_, i) => (
                       <option key={i} value={i}>
-                        {result.pageCount === 2 ? (i === 0 ? '表面' : '裏面') : `ページ ${i + 1}`}
+                        {result.pageCount === 2 ? (i === 0 ? 'Front' : 'Back') : `Page ${i + 1}`}
                       </option>
                     ))}
                   </select>
@@ -494,53 +494,53 @@ export default function Home() {
                 <>
                   <button className={`btn ghost small ${autoRotate ? 'active' : ''}`}
                     onClick={() => setAutoRotate((v) => !v)}>
-                    {autoRotate ? '⏸ 回転停止' : '▶ 3D回転'}
+                    {autoRotate ? '⏸ Stop' : '▶ Spin'}
                   </button>
-                  <button className="btn ghost small" onClick={() => setCommand((c) => ({ cmd: 'front', n: c.n + 1 }))}>正面</button>
-                  <button className="btn ghost small" onClick={() => setCommand((c) => ({ cmd: 'back', n: c.n + 1 }))}>背面</button>
-                  <button className="btn ghost small" onClick={() => setCommand((c) => ({ cmd: 'reset', n: c.n + 1 }))}>リセット</button>
+                  <button className="btn ghost small" onClick={() => setCommand((c) => ({ cmd: 'front', n: c.n + 1 }))}>Front</button>
+                  <button className="btn ghost small" onClick={() => setCommand((c) => ({ cmd: 'back', n: c.n + 1 }))}>Back</button>
+                  <button className="btn ghost small" onClick={() => setCommand((c) => ({ cmd: 'reset', n: c.n + 1 }))}>Reset</button>
                   <span className="sep" />
                 </>
               )}
               <button className={`btn ghost small ${showGuides ? 'active' : ''}`}
                 onClick={() => setShowGuides((v) => !v)}>
-                ガイド表示
+                Guides
               </button>
               <button className={`btn ghost small ${showDims ? 'active' : ''}`}
                 onClick={() => setShowDims((v) => !v)}>
-                寸法表示
+                Dimensions
               </button>
               <button className={`btn ghost small ${showTac ? 'active' : ''}`}
                 onClick={() => setShowTac((v) => !v)}>
-                インキ量 ({settings.tacLimit}%超を表示)
+                Ink (over {settings.tacLimit}%)
               </button>
               {markerKind && (
                 <button className="btn ghost small markerClear"
                   style={{ borderColor: MARKER_STYLE[markerKind].color, color: MARKER_STYLE[markerKind].color }}
                   onClick={() => setMarkerKind(null)}>
-                  ◎ {MARKER_STYLE[markerKind].label} の該当箇所を表示中 ✕
+                  ◎ Showing “{MARKER_STYLE[markerKind].label}” ✕
                 </button>
               )}
               {tab === '3d' ? (
                 <span className="note">
-                  {paper3d && `${overlaysOn ? 'データ' : '仕上がり'} ${Math.round(paper3d.wMm)}×${Math.round(paper3d.hMm)}mm ・ `}
-                  ドラッグで回転 / ホイールで拡大縮小 (カーソル中心)
+                  {paper3d && `${overlaysOn ? 'Data' : 'Trim'} ${Math.round(paper3d.wMm)}×${Math.round(paper3d.hMm)}mm · `}
+                  Drag to rotate / wheel to zoom (cursor-centered)
                 </span>
               ) : (
-                <span className="note">ホイールでズーム (カーソル中心) / ドラッグで移動</span>
+                <span className="note">Wheel to zoom (cursor-centered) / drag to pan</span>
               )}
             </div>
             {showGuides && (
               <div className="legend">
-                <span className="key"><span className="swatch" style={{ background: 'rgba(40,110,240,.35)' }} />塗り足し (断ち落とし) 領域</span>
-                <span className="key"><span className="swatch" style={{ border: '2px dashed #e11d48', background: 'transparent' }} />仕上がり線 (断裁位置)</span>
-                <span className="key"><span className="swatch" style={{ border: '2px dashed #0d9488', background: 'transparent' }} />文字安全域 ({settings.safeMarginMm}mm内側)</span>
-                <span className="key"><span className="swatch" style={{ border: '2px solid #dc2626', background: 'transparent' }} />低解像度画像</span>
-                {showTac && <span className="key"><span className="swatch" style={{ background: 'rgba(255,40,40,.75)' }} />総インキ量{settings.tacLimit}%超 (推定)</span>}
+                <span className="key"><span className="swatch" style={{ background: 'rgba(40,110,240,.35)' }} />Bleed (trim-off) area</span>
+                <span className="key"><span className="swatch" style={{ border: '2px dashed #e11d48', background: 'transparent' }} />Trim line (cut position)</span>
+                <span className="key"><span className="swatch" style={{ border: '2px dashed #0d9488', background: 'transparent' }} />Safe area ({settings.safeMarginMm}mm inside)</span>
+                <span className="key"><span className="swatch" style={{ border: '2px solid #dc2626', background: 'transparent' }} />Low-resolution image</span>
+                {showTac && <span className="key"><span className="swatch" style={{ background: 'rgba(255,40,40,.75)' }} />Total ink over {settings.tacLimit}% (est.)</span>}
                 {markerKind && (
                   <span className="key">
                     <span className="swatch" style={{ border: `2.5px solid ${MARKER_STYLE[markerKind].color}`, background: 'transparent' }} />
-                    {MARKER_STYLE[markerKind].label} の該当箇所 (概略位置)
+                    {MARKER_STYLE[markerKind].label} location (approx.)
                   </span>
                 )}
               </div>
@@ -548,9 +548,9 @@ export default function Home() {
           </div>
 
           <div className="footerNote">
-            ※ 本ツールの判定は入稿前のセルフチェックを目的とした解析であり、印刷所の正式なデータチェックを代替するものではありません。
-            総インキ量のピクセル判定はRGBレンダリングからの近似値です (ベクターオブジェクトのCMYK値は正確に判定されます)。
-            {result.kind === 'pdf' && ` 判定基準: 仕上がり ${paperSizeMm(settings.paperId, settings.customWmm, settings.customHmm, settings.landscape).wMm}×${paperSizeMm(settings.paperId, settings.customWmm, settings.customHmm, settings.landscape).hMm}mm / 塗り足し${settings.bleedMm}mm / TAC上限${settings.tacLimit}% / ${settings.minDpi}dpi以上`}
+            Note: This tool is a pre-submission self-check and does not replace the print shop’s official data inspection.
+            Total-ink judgments on pixels are approximations from RGB rendering (CMYK values of vector objects are judged exactly).
+            {result.kind === 'pdf' && ` Criteria: finished ${paperSizeMm(settings.paperId, settings.customWmm, settings.customHmm, settings.landscape).wMm}×${paperSizeMm(settings.paperId, settings.customWmm, settings.customHmm, settings.landscape).hMm}mm / bleed ${settings.bleedMm}mm / ink limit ${settings.tacLimit}% / ${settings.minDpi}dpi or higher`}
           </div>
           </div>
 

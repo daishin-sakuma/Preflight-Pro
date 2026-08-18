@@ -145,10 +145,10 @@ export default function Preview2D({ result, settings, pageIdx, showTac, showGuid
         />
       </div>
       <div className="zoomCtl" onPointerDown={(e) => e.stopPropagation()}>
-        <button title="ズームアウト" onClick={() => zoomButtons(1 / 1.3)}>−</button>
+        <button title="Zoom out" onClick={() => zoomButtons(1 / 1.3)}>−</button>
         <span className="zoomPct">{pct}%</span>
-        <button title="ズームイン" onClick={() => zoomButtons(1.3)}>＋</button>
-        <button title="全体表示に戻す" onClick={fit}>全体</button>
+        <button title="Zoom in" onClick={() => zoomButtons(1.3)}>＋</button>
+        <button title="Fit to view" onClick={fit}>Fit</button>
       </div>
     </div>
   );

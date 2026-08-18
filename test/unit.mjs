@@ -206,7 +206,7 @@ function geomFromBoxes(raw, wPt, hPt) {
   const eBad = estimateSizeFromBytes(fx('bad.pdf'), 3);
   expect(eBad?.presetId === 'a4',
     `estimate: bad.pdf → A4 (原寸ページから) (got ${JSON.stringify(eBad)})`);
-  expect(!!eBad?.sourceLabel.includes('塗り足しが無い'), 'estimate: bad.pdf 塗り足しなし注記');
+  expect(!!eBad?.sourceLabel.includes('bleed may be missing'), 'estimate: bad.pdf no-bleed note');
 
   const eAi = estimateSizeFromBytes(fx('ai-style.pdf'), 3);
   expect(eAi?.presetId === 'a4', `estimate: ai-style.pdf → A4 (got ${JSON.stringify(eAi)})`);

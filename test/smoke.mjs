@@ -46,59 +46,59 @@ try {
     await page.setInputFiles('input[type=file]', join(root, 'test/fixtures', fixture));
     // confirm step: settings review, then explicit start
     await page.waitForSelector('.confirmActions button', { timeout: 30000 });
-    await page.getByRole('button', { name: 'この設定でチェックを開始' }).click();
+    await page.getByRole('button', { name: 'Start check' }).click();
     await page.waitForSelector('.summaryBanner', { timeout: 90000 });
   };
 
   const bodyHas = async (text) => (await page.locator('body').innerText()).includes(text);
   const expect = async (label, text) =>
-    (await bodyHas(text)) ? ok(`${label}: 「${text}」検出`) : fail(`${label}: 「${text}」が見つからない`);
+    (await bodyHas(text)) ? ok(`${label}: found “${text}”`) : fail(`${label}: “${text}” not found`);
 
   // ---- bad.pdf ----
   await upload('bad.pdf');
-  await expect('bad.pdf', 'RGBカラーが含まれています');
-  await expect('bad.pdf', '4色ベタ');
-  await expect('bad.pdf', '塗り足しなし');
-  await expect('bad.pdf', '白ノセ');
-  await expect('bad.pdf', '極細線');
-  await expect('bad.pdf', '総インキ量');
+  await expect('bad.pdf', 'RGB color present');
+  await expect('bad.pdf', '4-color solid');
+  await expect('bad.pdf', 'No bleed');
+  await expect('bad.pdf', 'white overprint');
+  await expect('bad.pdf', 'Hairline');
+  await expect('bad.pdf', 'Total ink');
   (await page.locator('.summaryBanner.fail').count()) > 0
-    ? ok('bad.pdf: エラー判定バナー表示') : fail('bad.pdf: fail バナーなし');
+    ? ok('bad.pdf: error banner shown') : fail('bad.pdf: no fail banner');
   // 3D canvas visible
   await sleep(1500);
   (await page.locator('.previewStage canvas').count()) > 0
-    ? ok('bad.pdf: 3Dプレビュー canvas あり') : fail('bad.pdf: 3D canvas なし');
+    ? ok('bad.pdf: 3D preview canvas present') : fail('bad.pdf: no 3D canvas');
   await page.screenshot({ path: 'test/out-bad-3d.png' });
   // 2D tab with guides
-  await page.getByRole('button', { name: '2D校正ビュー' }).click();
+  await page.getByRole('button', { name: '2D proof' }).click();
   await sleep(800);
   await page.screenshot({ path: 'test/out-bad-2d.png' });
   // locate a finding's spots on the preview
   const locate = page.locator('.locateBtn').first();
-  (await locate.count()) > 0 ? ok('該当箇所を表示ボタンあり') : fail('locateBtn が見つからない');
+  (await locate.count()) > 0 ? ok('locate button present') : fail('locateBtn not found');
   if ((await locate.count()) > 0) {
     await locate.click();
     await sleep(600);
     (await page.locator('.markerClear').count()) > 0
-      ? ok('マーカー表示中バッジあり') : fail('markerClear が見つからない');
+      ? ok('marker-active badge present') : fail('markerClear not found');
     await page.screenshot({ path: 'test/out-bad-locate.png' });
   }
 
   // ---- good.pdf ----
   await upload('good.pdf');
   (await page.locator('.summaryBanner.fail').count()) === 0
-    ? ok('good.pdf: エラーなし') : fail('good.pdf: エラーが出ている\n' + (await page.locator('body').innerText()).slice(0, 1200));
-  await expect('good.pdf', '塗り足しあり');
-  await expect('good.pdf', 'CMYKカラーで作成されています');
+    ? ok('good.pdf: no errors') : fail('good.pdf: errors present\n' + (await page.locator('body').innerText()).slice(0, 1200));
+  await expect('good.pdf', 'Bleed present');
+  await expect('good.pdf', 'Built in CMYK');
   await page.screenshot({ path: 'test/out-good.png' });
 
   // ---- small.png ----
   await upload('small.png');
-  await expect('small.png', 'サイズ (解像度) 不足');
+  await expect('small.png', 'Size (resolution) too low');
   await expect('small.png', 'RGB');
   await page.screenshot({ path: 'test/out-png.png' });
 
-  errs.length === 0 ? ok('ページエラーなし') : fail('page errors: ' + errs.join(' | '));
+  errs.length === 0 ? ok('no page errors') : fail('page errors: ' + errs.join(' | '));
   await browser.close();
 } catch (e) {
   fail('exception: ' + (e.stack || e));

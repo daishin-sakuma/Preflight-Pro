@@ -204,9 +204,9 @@ export function interpretContent(
         if (st.space === 'rgb' && !isWhite()) addMarker('rgb', page, path, 'RGB');
         if (isWhite() && overprintNow()) {
           whiteFillWithGs++;
-          addMarker('white-op', page, path, '白ノセ疑い');
+          addMarker('white-op', page, path, 'White overprint');
         } else if (overprintNow()) {
-          addMarker('overprint', page, path, 'ノセ設定');
+          addMarker('overprint', page, path, 'Overprint');
         }
         if (st.space === 'cmyk' && st.color.length === 4) {
           // attach the first drawn location to this CMYK usage (for TAC markers)
@@ -224,7 +224,7 @@ export function interpretContent(
       }
       if (strokes) {
         if (st.space === 'rgb') addMarker('rgb', page, path, 'RGB');
-        if (overprintNow() && !isWhite()) addMarker('overprint', page, path, 'ノセ設定');
+        if (overprintNow() && !isWhite()) addMarker('overprint', page, path, 'Overprint');
         const eff = st.lineWidth * ctmScale();
         if (eff > 0 && eff < 0.25) {
           hairlineCount++;
@@ -363,18 +363,18 @@ export function interpretContent(
             if (st.space === 'cmyk' && st.color.length === 4) {
               record(st.color, true, true, page);
               const heavy = st.color.filter((v) => v >= 0.7).length;
-              if (heavy >= 3) addMarker('rich-black', page, textBox(), '4C文字', true);
+              if (heavy >= 3) addMarker('rich-black', page, textBox(), '4C text', true);
             }
-            if (st.space === 'rgb') addMarker('rgb', page, textBox(), 'RGB文字', true);
+            if (st.space === 'rgb') addMarker('rgb', page, textBox(), 'RGB text', true);
             if (curFont && fontNames[curFont] && !fontNames[curFont].embedded) {
               addMarker('font', page, textBox(),
-                fontNames[curFont].baseFont ?? '未埋め込み', true);
+                fontNames[curFont].baseFont ?? 'Unembedded', true);
             }
             if (overprintNow() && !isWhite()) {
-              addMarker('overprint', page, textBox(), 'ノセ設定 (文字)', true);
+              addMarker('overprint', page, textBox(), 'Overprint (text)', true);
             } else if (overprintNow() && isWhite()) {
               whiteFillWithGs++;
-              addMarker('white-op', page, textBox(), '白ノセ疑い (文字)', true);
+              addMarker('white-op', page, textBox(), 'White overprint (text)', true);
             }
             break;
           }

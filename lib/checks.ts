@@ -10,7 +10,7 @@ const f = (
   title: string, detail: string, extra?: Partial<Finding>,
 ): Finding => ({ id, category, severity, title, detail, ...extra });
 
-const fmt = (n: number, d = 1) => Number(n.toFixed(d)).toLocaleString('ja-JP');
+const fmt = (n: number, d = 1) => Number(n.toFixed(d)).toLocaleString('en-US');
 
 export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
   const out: Finding[] = [];
@@ -23,7 +23,7 @@ export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
     [...new Set((a.markers ?? []).filter((m) => m.kind === kind).map((m) => m.page))].sort((x, y) => x - y);
 
   // =====================================================================
-  // 1. 塗り足し・仕上がりサイズ
+  // 1. Bleed & trim size
   // =====================================================================
   if (a.kind === 'pdf') {
     const pg = a.pages[0];
@@ -41,10 +41,10 @@ export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
           (Math.abs(trimW - paper.wMm) < 1 && Math.abs(trimH - paper.hMm) < 1) ||
           (Math.abs(trimW - paper.hMm) < 1 && Math.abs(trimH - paper.wMm) < 1);
         out.push(okSize
-          ? f('trim-size', 'bleed', 'ok', '仕上がりサイズ一致',
-            `TrimBox ${fmt(trimW)}×${fmt(trimH)}mm が指定サイズ (${paper.wMm}×${paper.hMm}mm) と一致しています。`)
-          : f('trim-size', 'bleed', 'error', '仕上がりサイズ不一致',
-            `TrimBox は ${fmt(trimW)}×${fmt(trimH)}mm ですが、指定サイズは ${paper.wMm}×${paper.hMm}mm です。原寸で作成し直すか、注文サイズを確認してください。`));
+          ? f('trim-size', 'bleed', 'ok', 'Finished size matches',
+            `TrimBox ${fmt(trimW)}×${fmt(trimH)}mm matches the specified size (${paper.wMm}×${paper.hMm}mm).`)
+          : f('trim-size', 'bleed', 'error', 'Finished size mismatch',
+            `TrimBox is ${fmt(trimW)}×${fmt(trimH)}mm, but the specified size is ${paper.wMm}×${paper.hMm}mm. Rebuild at the correct size, or verify the ordered size.`));
 
         // bleed = media (or bleedbox) beyond trim
         const outer = pg.bleedBoxPt ?? media;
@@ -53,14 +53,14 @@ export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
           (t[1] - outer[1]), (outer[3] - t[3]),
         ) * MM_PER_PT;
         if (bl >= s.bleedMm - 0.3) {
-          out.push(f('bleed', 'bleed', 'ok', '塗り足しあり',
-            `塗り足し幅 約${fmt(bl)}mm が確保されています (必要: ${s.bleedMm}mm)。`));
+          out.push(f('bleed', 'bleed', 'ok', 'Bleed present',
+            `About ${fmt(bl)}mm of bleed is present (required: ${s.bleedMm}mm).`));
         } else if (bl > 0.3) {
-          out.push(f('bleed', 'bleed', 'warning', '塗り足し不足',
-            `塗り足し幅が約${fmt(bl)}mm しかありません (必要: ${s.bleedMm}mm)。断裁時に紙白が出る恐れがあります。`));
+          out.push(f('bleed', 'bleed', 'warning', 'Insufficient bleed',
+            `Only about ${fmt(bl)}mm of bleed (required: ${s.bleedMm}mm). Paper-white edges may appear when trimmed.`));
         } else {
-          out.push(f('bleed', 'bleed', 'error', '塗り足しなし',
-            `仕上がり線の外側に塗り足しがありません。断裁ズレで紙白が出ます。周囲${s.bleedMm}mmまで絵柄を伸ばしてください。`));
+          out.push(f('bleed', 'bleed', 'error', 'No bleed',
+            `There is no bleed outside the trim line. Trimming drift will expose paper white. Extend the artwork ${s.bleedMm}mm beyond the trim on all sides.`));
         }
       } else {
         // No TrimBox: compare media to ordered size
@@ -71,14 +71,14 @@ export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
           (Math.abs(mediaW - (paper.wMm + s.bleedMm * 2)) < 1 && Math.abs(mediaH - (paper.hMm + s.bleedMm * 2)) < 1) ||
           (Math.abs(mediaW - (paper.hMm + s.bleedMm * 2)) < 1 && Math.abs(mediaH - (paper.wMm + s.bleedMm * 2)) < 1);
         if (withBleed) {
-          out.push(f('trim-missing', 'bleed', 'info', 'TrimBox未設定 (塗り足し込みサイズ)',
-            `ページサイズ ${fmt(mediaW)}×${fmt(mediaH)}mm は仕上がり+塗り足し${s.bleedMm}mmに一致します。TrimBox(仕上がり線)は未設定のため、印刷所側でセンター断裁として扱われます。`));
+          out.push(f('trim-missing', 'bleed', 'info', 'No TrimBox (size includes bleed)',
+            `Page size ${fmt(mediaW)}×${fmt(mediaH)}mm matches finished + ${s.bleedMm}mm bleed. No TrimBox (trim line) is set, so the print shop will treat it as center trimming.`));
         } else if (plain) {
-          out.push(f('trim-missing', 'bleed', 'error', '塗り足しなし (原寸ジャスト)',
-            `ページサイズが仕上がり原寸 (${fmt(mediaW)}×${fmt(mediaH)}mm) ちょうどで、塗り足しがありません。周囲${s.bleedMm}mmの塗り足しを付けてください。`));
+          out.push(f('trim-missing', 'bleed', 'error', 'No bleed (exact finished size)',
+            `Page size is exactly the finished size (${fmt(mediaW)}×${fmt(mediaH)}mm) with no bleed. Add ${s.bleedMm}mm of bleed on all sides.`));
         } else {
-          out.push(f('trim-missing', 'bleed', 'warning', 'サイズ確認が必要',
-            `ページサイズ ${fmt(mediaW)}×${fmt(mediaH)}mm が指定サイズ (${paper.wMm}×${paper.hMm}mm / 塗り足し込み ${paper.wMm + s.bleedMm * 2}×${paper.hMm + s.bleedMm * 2}mm) と一致しません。トンボ付きの場合はTrimBoxの設定を推奨します。`));
+          out.push(f('trim-missing', 'bleed', 'warning', 'Size needs review',
+            `Page size ${fmt(mediaW)}×${fmt(mediaH)}mm doesn't match the specified size (${paper.wMm}×${paper.hMm}mm / with bleed ${paper.wMm + s.bleedMm * 2}×${paper.hMm + s.bleedMm * 2}mm). If using crop marks, setting a TrimBox is recommended.`));
         }
       }
     }
@@ -88,8 +88,8 @@ export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
       const w0 = a.pages[0].widthPt, h0 = a.pages[0].heightPt;
       const mixed = a.pages.some((p) => Math.abs(p.widthPt - w0) > 1 || Math.abs(p.heightPt - h0) > 1);
       if (mixed) {
-        out.push(f('page-size-mixed', 'bleed', 'warning', 'ページサイズ混在',
-          '文書内でページサイズが混在しています。全ページ同一サイズでの入稿が原則です。'));
+        out.push(f('page-size-mixed', 'bleed', 'warning', 'Mixed page sizes',
+          'Page sizes vary within the document. All pages should be the same size for submission.'));
       }
     }
   } else if (a.imageInfo) {
@@ -105,81 +105,81 @@ export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
       info.height / (paper.hMm / 25.4),
     );
     if (effDpi >= s.minDpi) {
-      out.push(f('img-bleed', 'bleed', 'ok', '塗り足し込みサイズOK',
-        `塗り足し${s.bleedMm}mm込み (${fmt(needW)}×${fmt(needH)}mm) に対して実効${Math.round(effDpi)}dpiを確保できています。画像の外周${s.bleedMm}mmは断ち落とされる前提でレイアウトしてください。`));
+      out.push(f('img-bleed', 'bleed', 'ok', 'Size (with bleed) OK',
+        `At ${fmt(needW)}×${fmt(needH)}mm including ${s.bleedMm}mm bleed, the effective resolution is ${Math.round(effDpi)}dpi. Lay out with the outer ${s.bleedMm}mm expected to be trimmed off.`));
     } else if (dpiTrim >= s.minDpi) {
-      out.push(f('img-bleed', 'bleed', 'warning', '塗り足し分の余裕なし',
-        `仕上がり原寸では${Math.round(dpiTrim)}dpiありますが、塗り足し${s.bleedMm}mmを含めると${Math.round(effDpi)}dpiに低下します。塗り足し込みでの作成を推奨します。`));
+      out.push(f('img-bleed', 'bleed', 'warning', 'No room for bleed',
+        `At the exact finished size the image is ${Math.round(dpiTrim)}dpi, but including ${s.bleedMm}mm bleed it drops to ${Math.round(effDpi)}dpi. Build with bleed included.`));
     } else {
-      out.push(f('img-bleed', 'bleed', 'error', 'サイズ (解像度) 不足',
-        `${paper.wMm}×${paper.hMm}mm+塗り足しには ${Math.ceil((needW / 25.4) * s.minDpi)}×${Math.ceil((needH / 25.4) * s.minDpi)}px 必要ですが、${info.width}×${info.height}px しかありません (実効${Math.round(effDpi)}dpi)。`));
+      out.push(f('img-bleed', 'bleed', 'error', 'Size (resolution) too low',
+        `${paper.wMm}×${paper.hMm}mm + bleed needs ${Math.ceil((needW / 25.4) * s.minDpi)}×${Math.ceil((needH / 25.4) * s.minDpi)}px, but this image is only ${info.width}×${info.height}px (effective ${Math.round(effDpi)}dpi).`));
     }
   }
 
   // =====================================================================
-  // 2. カラーモード
+  // 2. Color mode
   // =====================================================================
   if (a.kind === 'pdf' && a.scan && a.content) {
     const rgbHit = a.scan.hasDeviceRGB || a.scan.hasCalRGB || a.content.rgbOps > 0;
     if (rgbHit) {
       const sev: Severity = s.requireCmyk ? 'error' : 'warning';
       const srcs: string[] = [];
-      if (a.content.rgbOps > 0) srcs.push(`RGB指定の描画 ${a.content.rgbOps}箇所`);
-      if (a.scan.hasDeviceRGB) srcs.push('DeviceRGB色空間');
-      if (a.scan.hasCalRGB) srcs.push('CalRGB色空間');
-      out.push(f('rgb', 'color', sev, 'RGBカラーが含まれています',
-        `${srcs.join('、')} を検出しました。印刷はCMYKで行われるため、RGBのままでは印刷所側の自動変換で色味が大きく変わる恐れがあります。CMYKに変換して再入稿してください。`,
+      if (a.content.rgbOps > 0) srcs.push(`${a.content.rgbOps} RGB draw op(s)`);
+      if (a.scan.hasDeviceRGB) srcs.push('DeviceRGB color space');
+      if (a.scan.hasCalRGB) srcs.push('CalRGB color space');
+      out.push(f('rgb', 'color', sev, 'RGB color present',
+        `Detected ${srcs.join(', ')}. Printing is done in CMYK, so leaving RGB risks large color shifts from the shop's automatic conversion. Convert to CMYK and resubmit.`,
         { markerKind: mk('rgb'), pages: mkPages('rgb').length ? mkPages('rgb') : undefined }));
     } else if (a.scan.hasDeviceCMYK || a.scan.iccCmykLikely || a.content.cmykFills.length > 0) {
-      const icc = a.scan.iccCmykLikely ? ' (ICCベースCMYK色空間)' : '';
-      out.push(f('rgb', 'color', 'ok', 'CMYKカラーで作成されています',
-        `RGBオブジェクトは検出されませんでした${icc}。`));
+      const icc = a.scan.iccCmykLikely ? ' (ICC-based CMYK color space)' : '';
+      out.push(f('rgb', 'color', 'ok', 'Built in CMYK',
+        `No RGB objects were detected${icc}.`));
     } else {
-      out.push(f('rgb', 'color', 'info', 'カラー使用なし/判定不能',
-        'カラー指定オブジェクトが検出できませんでした (グレースケールのみ、または特殊な色空間・グラデーションのみで構成されている可能性)。'));
+      out.push(f('rgb', 'color', 'info', 'No color / undetermined',
+        'No color-bearing objects were detected (may be grayscale only, or composed solely of special color spaces / gradients).'));
     }
 
     if (a.scan.hasICCBased && a.scan.iccRgbLikely && s.requireCmyk) {
-      out.push(f('icc-rgb', 'color', 'warning', 'ICCベースのRGB色空間の可能性',
-        'ICCプロファイル参照色空間 (RGB系) が含まれている可能性があります。埋め込み画像がRGBのままになっていないかご確認ください。'));
+      out.push(f('icc-rgb', 'color', 'warning', 'Possible ICC-based RGB color space',
+        'An ICC-profile (RGB-type) color space may be present. Check that embedded images are not still RGB.'));
     }
 
     if (a.scan.separationNames.length > 0) {
-      out.push(f('spot', 'color', 'warning', '特色 (スポットカラー) 使用',
-        `特色「${a.scan.separationNames.slice(0, 6).join('」「')}」が定義されています。通常の4色 (CMYK) 印刷では特色は使用できません。プロセスカラーに変換してください (特色印刷を注文している場合は問題ありません)。`,
+      out.push(f('spot', 'color', 'warning', 'Spot colors used',
+        `Spot colors “${a.scan.separationNames.slice(0, 6).join('”, “')}” are defined. Standard 4-color (CMYK) printing can't use spot colors — convert them to process colors (fine if you ordered spot-color printing).`,
         { count: a.scan.separationNames.length }));
     }
 
     if (a.scan.pdfxVersion) {
-      out.push(f('pdfx', 'color', 'ok', `PDF/X準拠 (${a.scan.pdfxVersion})`,
-        `出力インテント: ${a.scan.outputIntent ?? '記載なし'}。印刷用途に適した規格で保存されています。`));
+      out.push(f('pdfx', 'color', 'ok', `PDF/X compliant (${a.scan.pdfxVersion})`,
+        `Output intent: ${a.scan.outputIntent ?? 'not stated'}. Saved in a standard suited to print production.`));
     }
   } else if (a.imageInfo) {
     const info = a.imageInfo;
     if (info.colorSpace === 'rgb' || info.colorSpace === 'palette') {
       const sev: Severity = s.requireCmyk ? 'warning' : 'info';
       out.push(f('img-rgb', 'color', sev,
-        info.format === 'png' ? 'PNGはRGB形式です' : 'RGB形式の画像です',
-        `この画像はRGB${info.colorSpace === 'palette' ? ' (インデックスカラー)' : ''}です。印刷所でCMYK変換されるため、鮮やかなRGB色 (蛍光色系) はくすんで印刷されます。厳密な色管理が必要な場合はCMYKのPDF/TIFF等での入稿を推奨します。`));
+        info.format === 'png' ? 'PNG is RGB' : 'RGB image',
+        `This image is RGB${info.colorSpace === 'palette' ? ' (indexed color)' : ''}. It will be CMYK-converted at the shop, so vivid RGB colors (especially fluorescents) will print duller. For strict color control, submit CMYK PDF/TIFF.`));
     } else if (info.colorSpace === 'cmyk') {
-      out.push(f('img-rgb', 'color', 'ok', 'CMYK形式の画像です',
-        'CMYK JPEGを検出しました。ブラウザプレビューは近似表示となります。'));
+      out.push(f('img-rgb', 'color', 'ok', 'CMYK image',
+        'Detected a CMYK JPEG. The browser preview is an approximation.'));
     } else if (info.colorSpace === 'gray') {
-      out.push(f('img-rgb', 'color', 'info', 'グレースケール画像です',
-        'モノクロ印刷用であれば問題ありません。'));
+      out.push(f('img-rgb', 'color', 'info', 'Grayscale image',
+        'Fine if intended for monochrome printing.'));
     }
     if (info.hasIccProfile) {
-      out.push(f('img-icc', 'color', 'info', 'ICCプロファイル埋め込みあり',
-        `${info.iccName ? `プロファイル: ${info.iccName}。` : ''}印刷所の運用によっては破棄されます。Japan Color 2001 Coated 相当での作成が一般的です。`));
+      out.push(f('img-icc', 'color', 'info', 'ICC profile embedded',
+        `${info.iccName ? `Profile: ${info.iccName}. ` : ''}It may be discarded depending on the shop's workflow. Building to Japan Color 2001 Coated (or equivalent) is common.`));
     }
     if (info.hasAlpha) {
-      out.push(f('img-alpha', 'color', 'warning', '透明 (アルファチャンネル) あり',
-        '透明部分は印刷時に白または不定な色になります。背景を敷いて統合してください。'));
+      out.push(f('img-alpha', 'color', 'warning', 'Transparency (alpha) present',
+        'Transparent areas print as white or an undefined color. Add a background and flatten.'));
     }
   }
 
   // =====================================================================
-  // 3. インキ (TAC / ベタ / オーバープリント)
+  // 3. Ink (TAC / solids / overprint)
   // =====================================================================
   if (a.kind === 'pdf' && a.content && a.scan) {
     const over = a.content.cmykFills.filter((c) => c.tac > s.tacLimit);
@@ -189,26 +189,26 @@ export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
     );
 
     if (reg4.length > 0 || a.scan.usesRegistrationAll) {
-      out.push(f('4c-black', 'ink', 'error', '4色ベタ (C100 M100 Y100 K100)',
-        `4色ベタ${a.scan.usesRegistrationAll ? '・レジストレーションカラー (トンボ用の特殊色)' : ''}が使われています。インキが乾かず裏移り・ブロッキングの原因になります。黒はK100%または適正なリッチブラック (例: C40 M30 Y30 K100) に修正してください。`));
+      out.push(f('4c-black', 'ink', 'error', '4-color solid (C100 M100 Y100 K100)',
+        `A 4-color solid${a.scan.usesRegistrationAll ? ' / registration color (a special color for crop marks)' : ''} is used. The ink won't dry, causing set-off and blocking. Change black to K100% or a proper rich black (e.g. C40 M30 Y30 K100).`));
     }
     if (over.length > 0) {
       const worst = over.reduce((x, y) => (x.tac > y.tac ? x : y));
-      out.push(f('tac-vector', 'ink', 'error', `総インキ量 ${s.tacLimit}% 超過`,
-        `上限${s.tacLimit}%を超えるカラー指定が${over.length}色あります (最大 ${Math.round(worst.tac)}%: C${Math.round(worst.c * 100)} M${Math.round(worst.m * 100)} Y${Math.round(worst.y * 100)} K${Math.round(worst.k * 100)})。乾燥不良・裏移りの原因になるため、合計${s.tacLimit}%以下に調整してください。`,
+      out.push(f('tac-vector', 'ink', 'error', `Total ink over ${s.tacLimit}%`,
+        `${over.length} color(s) exceed the ${s.tacLimit}% limit (max ${Math.round(worst.tac)}%: C${Math.round(worst.c * 100)} M${Math.round(worst.m * 100)} Y${Math.round(worst.y * 100)} K${Math.round(worst.k * 100)}). This causes poor drying and set-off — keep the total at or below ${s.tacLimit}%.`,
         { count: over.length, markerKind: mk('tac'), pages: mkPages('tac').length ? mkPages('tac') : undefined }));
     } else if (a.content.cmykFills.length > 0 && reg4.length === 0) {
-      out.push(f('tac-vector', 'ink', 'ok', `総インキ量 (ベクター) ${s.tacLimit}%以内`,
-        `検出したCMYK指定 ${a.content.cmykFills.length}色 はすべて上限内です。`));
+      out.push(f('tac-vector', 'ink', 'ok', `Total ink (vector) within ${s.tacLimit}%`,
+        `All ${a.content.cmykFills.length} detected CMYK color(s) are within the limit.`));
     }
     if (heavy3.length > 0) {
-      out.push(f('3c-heavy', 'ink', 'warning', '3色高濃度ベタ',
-        `CMY3色とも90%以上の高濃度指定が${heavy3.length}色あります。見当ズレや乾燥不良のリスクがあります。K版を活用した設計を推奨します。`,
+      out.push(f('3c-heavy', 'ink', 'warning', 'Dense 3-color solid',
+        `${heavy3.length} color(s) use 90%+ in all of C, M and Y. This risks misregistration and poor drying — design using the K plate instead.`,
         { count: heavy3.length }));
     }
     if (a.content.richBlackText.length > 0) {
-      out.push(f('rich-black-text', 'ink', 'warning', '文字へのリッチブラック使用',
-        `テキストに3色以上を重ねた黒 (リッチブラック) が使われています。小さな文字では版ズレで輪郭がにじみます。スミ文字はK100%単色を推奨します。`,
+      out.push(f('rich-black-text', 'ink', 'warning', 'Rich black used on text',
+        `Text uses black built from 3+ overlapping inks (rich black). Small text will fringe from misregistration. Use K100% only for body text.`,
         { count: a.content.richBlackText.length, markerKind: mk('rich-black') }));
     }
 
@@ -216,122 +216,122 @@ export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
     const worstTac = a.tac.reduce((mx, t) => Math.max(mx, t.maxTac), 0);
     const anyOver = a.tac.some((t) => t.overLimitRatio > 0.0005);
     if (anyOver) {
-      out.push(f('tac-raster', 'ink', 'warning', '高インキ量領域あり (参考値)',
-        `レンダリング結果からの推定で、総インキ量が${s.tacLimit}%を超える可能性のある領域を検出しました (推定最大 約${worstTac}%)。プレビューの「インキ量」表示で位置を確認できます。※RGB描画からの近似のため、正確な値は元データのCMYK値をご確認ください。`,
+      out.push(f('tac-raster', 'ink', 'warning', 'High-ink areas present (reference)',
+        `Based on the rendered result, areas that may exceed ${s.tacLimit}% total ink were detected (est. max ~${worstTac}%). Use the “Ink” overlay in the preview to see where. Note: this is approximated from RGB rendering — verify exact values against the source CMYK.`,
         { pages: a.tac.filter((t) => t.overLimitRatio > 0.0005).map((t) => t.page) }));
     }
 
     // overprint
     if (a.content.whiteFillWithGs > 0) {
-      out.push(f('white-op', 'ink', 'error', '白オブジェクトのオーバープリント (白ノセ) の疑い',
-        `オーバープリント設定が有効な文書内で、白い塗りオブジェクトを${a.content.whiteFillWithGs}件検出しました。白にノセが設定されていると、その部分は印刷時に消えます (画面では見えるため事故が多発するポイントです)。オーバープリントを解除してください。`,
+      out.push(f('white-op', 'ink', 'error', 'Suspected white overprint',
+        `In a document with overprint enabled, ${a.content.whiteFillWithGs} white fill object(s) were detected. When white is set to overprint, those areas vanish in print (they still show on screen, which causes frequent accidents). Turn overprint off.`,
         { markerKind: mk('white-op'), pages: mkPages('white-op').length ? mkPages('white-op') : undefined }));
     }
     if (a.scan.overprintTrue) {
       const opCount = (a.markers ?? []).filter((m) => m.kind === 'overprint').length;
-      out.push(f('overprint', 'ink', 'warning', 'オーバープリント (ノセ) 設定あり',
-        'オーバープリント指定が含まれています。意図したノセ (K100文字のノセ等) であれば問題ありませんが、意図しない場合は「オーバープリントプレビュー」で確認してください。印刷所によっては自動でK100のみノセ処理されます。',
+      out.push(f('overprint', 'ink', 'warning', 'Overprint set',
+        'Overprint settings are present. Fine if intentional (e.g. K100 text overprint), but if not, verify with an overprint preview. Some shops auto-overprint K100 only.',
         {
           count: opCount || undefined,
           markerKind: mk('overprint'),
           pages: mkPages('overprint').length ? mkPages('overprint') : undefined,
         }));
     } else if (a.content.whiteFillWithGs === 0) {
-      out.push(f('overprint', 'ink', 'ok', 'オーバープリント設定なし',
-        '危険なオーバープリント指定は検出されませんでした (K100文字は印刷所側で自動ノセ処理されるのが一般的です)。'));
+      out.push(f('overprint', 'ink', 'ok', 'No overprint',
+        'No dangerous overprint settings were detected (K100 text is commonly auto-overprinted by the shop).'));
     }
   } else if (a.imageInfo) {
     const worstTac = a.tac.reduce((mx, t) => Math.max(mx, t.maxTac), 0);
     const anyOver = a.tac.some((t) => t.overLimitRatio > 0.0005);
     out.push(anyOver
-      ? f('tac-raster', 'ink', 'warning', '高インキ量領域あり (参考値)',
-        `CMYK変換後に総インキ量${s.tacLimit}%を超える可能性がある濃い領域を検出しました (推定最大 約${worstTac}%)。プレビューの「インキ量」表示で確認してください。`)
-      : f('tac-raster', 'ink', 'ok', `総インキ量 ${s.tacLimit}%以内 (推定)`,
-        `CMYK変換後の総インキ量は上限内に収まる見込みです (推定最大 約${worstTac}%)。`));
+      ? f('tac-raster', 'ink', 'warning', 'High-ink areas present (reference)',
+        `Dark areas that may exceed ${s.tacLimit}% total ink after CMYK conversion were detected (est. max ~${worstTac}%). Check with the “Ink” overlay in the preview.`)
+      : f('tac-raster', 'ink', 'ok', `Total ink within ${s.tacLimit}% (est.)`,
+        `Total ink after CMYK conversion is expected to stay within the limit (est. max ~${worstTac}%).`));
   }
 
   // =====================================================================
-  // 4. 解像度
+  // 4. Resolution
   // =====================================================================
   if (a.kind === 'pdf') {
     if (a.images.length > 0) {
       const low = a.images.filter((im) => im.effectiveDpi < s.minDpi && im.printWidthMm > 5 && im.printHeightMm > 5);
       const veryLow = low.filter((im) => im.effectiveDpi < Math.min(200, s.minDpi));
       if (low.length === 0) {
-        out.push(f('dpi', 'resolution', 'ok', `配置画像はすべて${s.minDpi}dpi以上`,
-          `${a.images.length}枚の配置画像の実効解像度を確認しました。`));
+        out.push(f('dpi', 'resolution', 'ok', `All placed images ≥ ${s.minDpi}dpi`,
+          `Verified the effective resolution of ${a.images.length} placed image(s).`));
       } else {
         const worst = low.reduce((x, y) => (x.effectiveDpi < y.effectiveDpi ? x : y));
         out.push(f('dpi', 'resolution', veryLow.length > 0 ? 'error' : 'warning',
-          `低解像度の配置画像 ${low.length}枚`,
-          `実効${s.minDpi}dpi未満の画像があります (最低 ${worst.effectiveDpi}dpi、配置サイズ ${fmt(worst.printWidthMm, 0)}×${fmt(worst.printHeightMm, 0)}mm)。粗く印刷されます。原寸で${s.minDpi}dpi以上の画像に差し替えるか、配置サイズを縮小してください。`,
+          `${low.length} low-resolution placed image(s)`,
+          `Some images are below ${s.minDpi}dpi effective (lowest ${worst.effectiveDpi}dpi, placed at ${fmt(worst.printWidthMm, 0)}×${fmt(worst.printHeightMm, 0)}mm). They will print coarse. Replace with images ≥ ${s.minDpi}dpi at size, or shrink the placement.`,
           { count: low.length, pages: [...new Set(low.map((i) => i.page))] }));
       }
     } else {
-      out.push(f('dpi', 'resolution', 'info', '配置画像なし',
-        'ラスター画像は検出されませんでした (ベクターのみ)。'));
+      out.push(f('dpi', 'resolution', 'info', 'No placed images',
+        'No raster images were detected (vector only).'));
     }
   } else if (a.imageInfo) {
     const info = a.imageInfo;
     if (info.embeddedDpi) {
-      out.push(f('img-dpi-meta', 'resolution', 'info', `画像の解像度設定: ${info.embeddedDpi}dpi`,
-        `メタデータ上の解像度です。実際の印刷品質は「指定サイズに対する実効解像度」(塗り足しチェック参照) で決まります。`));
+      out.push(f('img-dpi-meta', 'resolution', 'info', `Image resolution setting: ${info.embeddedDpi}dpi`,
+        `This is the resolution in the metadata. Actual print quality depends on the effective resolution at the specified size (see the bleed check).`));
     }
   }
 
   // =====================================================================
-  // 5. フォント
+  // 5. Fonts
   // =====================================================================
   if (a.kind === 'pdf' && a.scan) {
     if (a.scan.fontsTotal === 0) {
-      out.push(f('fonts', 'font', 'ok', 'フォント使用なし',
-        'フォントは検出されませんでした (アウトライン化済み、または画像化されています)。'));
+      out.push(f('fonts', 'font', 'ok', 'No fonts used',
+        'No fonts were detected (already outlined, or rasterized).'));
     } else if (a.scan.fontsNotEmbedded.length === 0) {
-      out.push(f('fonts', 'font', 'ok', `全フォント埋め込み済み (${a.scan.fontsTotal}書体)`,
-        'すべてのフォントがPDFに埋め込まれています。'));
+      out.push(f('fonts', 'font', 'ok', `All fonts embedded (${a.scan.fontsTotal})`,
+        'All fonts are embedded in the PDF.'));
     } else {
-      out.push(f('fonts', 'font', 'error', 'フォント未埋め込み',
-        `埋め込まれていないフォントがあります: ${a.scan.fontsNotEmbedded.slice(0, 5).join(', ')}${a.scan.fontsNotEmbedded.length > 5 ? ' 他' : ''}。印刷所の環境で文字化け・別書体に置き換わります。フォントを埋め込むかアウトライン化してください。`,
+      out.push(f('fonts', 'font', 'error', 'Fonts not embedded',
+        `Some fonts are not embedded: ${a.scan.fontsNotEmbedded.slice(0, 5).join(', ')}${a.scan.fontsNotEmbedded.length > 5 ? ', etc.' : ''}. They may be garbled or substituted at the shop. Embed the fonts or convert to outlines.`,
         { count: a.scan.fontsNotEmbedded.length, markerKind: mk('font'), pages: mkPages('font').length ? mkPages('font') : undefined }));
     }
   }
 
   // =====================================================================
-  // 6. その他
+  // 6. Other
   // =====================================================================
   if (a.kind === 'pdf' && a.scan && a.content) {
     if (a.scan.encrypted) {
-      out.push(f('encrypted', 'other', 'error', 'セキュリティ (暗号化) 設定あり',
-        'パスワード・編集制限付きのPDFは印刷所で処理できません。セキュリティなしで書き出してください。'));
+      out.push(f('encrypted', 'other', 'error', 'Security (encryption) set',
+        'Password- or edit-restricted PDFs cannot be processed by the shop. Export without security.'));
     }
     if (a.scan.transparencyUsed) {
-      out.push(f('transparency', 'other', 'info', '透明効果の使用',
-        'ドロップシャドウ等の透明効果が使われています。多くの印刷所はPDF/X-1a運用時に透明を分割統合します。まれに白い線 (分割痕) がプレビューに見えることがありますが、通常は印刷されません。心配な場合はPDF/X-4での入稿可否を印刷所に確認してください。'));
+      out.push(f('transparency', 'other', 'info', 'Transparency used',
+        'Transparency effects (drop shadows, etc.) are used. Many shops flatten transparency under a PDF/X-1a workflow. Faint white lines (flattening seams) may occasionally show in the preview but usually don\'t print. If concerned, ask the shop whether PDF/X-4 is accepted.'));
     }
     if (a.scan.hasAnnotsOrForms) {
-      out.push(f('annots', 'other', 'warning', '注釈・フォームフィールドあり',
-        'PDF注釈やフォームは印刷されない、または意図せず印刷される場合があります。統合または削除してください。'));
+      out.push(f('annots', 'other', 'warning', 'Annotations / form fields present',
+        'PDF annotations and forms may not print, or may print unintentionally. Flatten or remove them.'));
     }
     if (a.scan.hasLayers) {
-      out.push(f('layers', 'other', 'info', 'レイヤー (OCG) あり',
-        '非表示レイヤーが含まれる場合、印刷所のRIPで意図しない出力になることがあります。レイヤーを統合しての書き出しを推奨します。'));
+      out.push(f('layers', 'other', 'info', 'Layers (OCG) present',
+        'If hidden layers are included, the shop\'s RIP may output them unexpectedly. Flatten layers when exporting.'));
     }
     if (a.content.hairlineCount > 0) {
-      out.push(f('hairline', 'other', 'warning', '極細線 (ヘアライン)',
-        `線幅0.25pt未満の罫線を${a.content.hairlineCount}箇所検出しました。印刷で消える・かすれる恐れがあります。0.25pt (約0.09mm) 以上にしてください。`,
+      out.push(f('hairline', 'other', 'warning', 'Hairlines',
+        `Detected ${a.content.hairlineCount} rule(s) thinner than 0.25pt. They may disappear or print faint. Use 0.25pt (about 0.09mm) or thicker.`,
         { count: a.content.hairlineCount, markerKind: mk('hairline') }));
     }
     if (a.scan.pdfVersion) {
       const v = parseFloat(a.scan.pdfVersion);
       out.push(f('pdf-version', 'other', v >= 1.3 ? 'info' : 'warning',
-        `PDFバージョン: ${a.scan.pdfVersion}`,
-        v >= 1.3 ? '一般的な印刷ワークフローで対応可能なバージョンです。'
-          : '非常に古いPDFバージョンです。再書き出しを推奨します。'));
+        `PDF version: ${a.scan.pdfVersion}`,
+        v >= 1.3 ? 'A version supported by common print workflows.'
+          : 'A very old PDF version. Re-exporting is recommended.'));
     }
   }
 
   for (const n of a.notes) {
-    out.push(f(`note-${out.length}`, 'other', 'info', '解析メモ', n));
+    out.push(f(`note-${out.length}`, 'other', 'info', 'Analysis note', n));
   }
 
   return out;

@@ -15,11 +15,11 @@ export const PAPER_PRESETS: PaperPreset[] = [
   { id: 'b4', label: 'B4 (257×364)', wMm: 257, hMm: 364 },
   { id: 'b5', label: 'B5 (182×257)', wMm: 182, hMm: 257 },
   { id: 'b6', label: 'B6 (128×182)', wMm: 128, hMm: 182 },
-  { id: 'postcard', label: 'ポストカード (100×148)', wMm: 100, hMm: 148 },
-  { id: 'meishi', label: '名刺 (91×55)', wMm: 91, hMm: 55 },
-  { id: 'card', label: 'カード (54×86)', wMm: 54, hMm: 86 },
-  { id: 'l-flyer', label: 'A4チラシ 二つ折り展開 (297×210)', wMm: 297, hMm: 210 },
-  { id: 'custom', label: 'カスタム…', wMm: 210, hMm: 297 },
+  { id: 'postcard', label: 'Postcard (100×148)', wMm: 100, hMm: 148 },
+  { id: 'meishi', label: 'Business card JP (91×55)', wMm: 91, hMm: 55 },
+  { id: 'card', label: 'Business card US (86×54)', wMm: 54, hMm: 86 },
+  { id: 'l-flyer', label: 'A4 flyer, landscape (297×210)', wMm: 297, hMm: 210 },
+  { id: 'custom', label: 'Custom…', wMm: 210, hMm: 297 },
 ];
 
 export function paperSizeMm(

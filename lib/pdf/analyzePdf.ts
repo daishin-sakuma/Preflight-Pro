@@ -60,10 +60,10 @@ export async function analyzePdf(
   ensureWorker();
   const notes: string[] = [];
 
-  onProgress?.('PDF構造を解析中…');
+  onProgress?.('Analyzing PDF structure…');
   const raw = rawScanPdf(bytes);
 
-  onProgress?.('カラー・オーバープリントを解析中…');
+  onProgress?.('Analyzing color & overprint…');
   const content = interpretContent(raw.contentStreams, raw.scan.overprintTrue, raw.csNames, raw.fontNames, raw.gsNames);
 
   // merge gradient (shading) endpoint colors — they carry real ink values but
@@ -87,11 +87,11 @@ export async function analyzePdf(
 
   const maxAnalyzePages = Math.min(pageCount, 8);
   if (pageCount > maxAnalyzePages) {
-    notes.push(`ページ数が多いため、プレビュー/画像解析は先頭${maxAnalyzePages}ページのみ実施しました。`);
+    notes.push(`Many pages: preview/image analysis was limited to the first ${maxAnalyzePages} pages.`);
   }
 
   for (let p = 1; p <= maxAnalyzePages; p++) {
-    onProgress?.(`ページ ${p}/${maxAnalyzePages} をレンダリング中…`);
+    onProgress?.(`Rendering page ${p}/${maxAnalyzePages}…`);
     const page = await doc.getPage(p);
     const view = page.view as number[]; // crop box
     const media = pickBox(raw.boxes.media, p - 1) ?? [view[0], view[1], view[2], view[3]];
@@ -194,7 +194,7 @@ export async function analyzePdf(
         }
       }
     } catch (e) {
-      notes.push(`ページ${p}の画像解析をスキップしました (${String(e).slice(0, 80)})`);
+      notes.push(`Skipped image analysis on page ${p} (${String(e).slice(0, 80)})`);
     }
   }
 

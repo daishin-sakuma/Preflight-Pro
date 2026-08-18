@@ -25,20 +25,20 @@ export interface Marker {
 }
 
 export type CategoryId =
-  | 'color'       // カラーモード
-  | 'ink'         // インキ・ベタ・オーバープリント
-  | 'bleed'       // 塗り足し・仕上がりサイズ
-  | 'resolution'  // 画像解像度
-  | 'font'        // フォント
-  | 'other';      // その他 (透明効果・注釈・バージョン等)
+  | 'color'       // color mode
+  | 'ink'         // ink, solids, overprint
+  | 'bleed'       // bleed & finished size
+  | 'resolution'  // image resolution
+  | 'font'        // fonts
+  | 'other';      // other (transparency, annotations, version, etc.)
 
 export const CATEGORY_LABELS: Record<CategoryId, string> = {
-  color: 'カラーモード',
-  ink: 'インキ・オーバープリント',
-  bleed: '塗り足し・仕上がりサイズ',
-  resolution: '画像解像度',
-  font: 'フォント',
-  other: 'その他',
+  color: 'Color mode',
+  ink: 'Ink & overprint',
+  bleed: 'Bleed & trim size',
+  resolution: 'Image resolution',
+  font: 'Fonts',
+  other: 'Other',
 };
 
 export const CATEGORY_ORDER: CategoryId[] = [

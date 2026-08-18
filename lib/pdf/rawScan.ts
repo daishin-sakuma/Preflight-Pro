@@ -276,7 +276,7 @@ export function rawScanPdf(bytes: Uint8Array): RawScanResult {
     // merge into the not-embedded list (unique base names)
     for (const f of Object.values(fontNames)) {
       if (!f.embedded) {
-        const name = f.baseFont ?? '(名称不明フォント)';
+        const name = f.baseFont ?? '(unnamed font)';
         if (!fontsNotEmbedded.includes(name)) fontsNotEmbedded.push(name);
       }
     }

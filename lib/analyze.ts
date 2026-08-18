@@ -21,13 +21,13 @@ export async function analyzeFile(
 
   if (name.endsWith('.ai') && !isPdfLike) {
     throw new Error(
-      'このIllustratorファイルはPDF互換形式で保存されていません。' +
-      '保存時に「PDF互換ファイルを作成」にチェックを入れて保存し直すか、PDF形式で書き出してください。',
+      'This Illustrator file was not saved in a PDF-compatible format. ' +
+      'Re-save with “Create PDF Compatible File” enabled, or export as PDF.',
     );
   }
 
   if (isPdfLike) {
-    onProgress?.('PDFを読み込み中…');
+    onProgress?.('Loading PDF…');
     const r = await analyzePdf(buf, settings.tacLimit, onProgress);
     const result: AnalysisResult = {
       kind: 'pdf',
@@ -57,7 +57,7 @@ export async function analyzeFile(
       ],
     };
     if (name.endsWith('.ai')) {
-      result.notes.push('Illustrator(.ai)ファイルをPDF互換データとして解析しました。');
+      result.notes.push('Analyzed the Illustrator (.ai) file as PDF-compatible data.');
     }
     result.findings = runChecks(result, settings);
     return result;
@@ -65,10 +65,10 @@ export async function analyzeFile(
 
   const kind = sniffImage(buf);
   if (!kind) {
-    throw new Error('対応していないファイル形式です。PDF / AI (PDF互換) / JPEG / PNG を入稿してください。');
+    throw new Error('Unsupported file format. Please submit PDF / AI (PDF-compatible) / JPEG / PNG.');
   }
 
-  onProgress?.('画像を解析中…');
+  onProgress?.('Analyzing image…');
   const info = kind === 'png' ? analyzePng(buf) : analyzeJpeg(buf);
 
   // decode for preview + pixel TAC
@@ -84,7 +84,7 @@ export async function analyzeFile(
   ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
   bitmap.close();
 
-  onProgress?.('インキ量を推定中…');
+  onProgress?.('Estimating ink coverage…');
   const tac = [analyzeTac(canvas, 1, settings.tacLimit)];
 
   // page geometry: treat the image as one page at the ordered size + bleed

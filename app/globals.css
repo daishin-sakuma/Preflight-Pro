@@ -133,7 +133,7 @@
 [data-theme='light'] ::-webkit-scrollbar-thumb { background: var(--border-strong); border-color: var(--ground); }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
-html, body { height: 100%; }
+html, body { min-height: 100%; }
 body {
   font-family: var(--font-figtree), -apple-system, "Segoe UI", "Hiragino Kaku Gothic ProN",
     "Hiragino Sans", "Yu Gothic UI", "Noto Sans JP", sans-serif;

@@ -2,7 +2,7 @@
 
 // Numbered check-category sidebar (graphic-style) with per-item details.
 
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Finding, Severity, CategoryId } from '@/lib/types';
 import { CATEGORY_LABELS, CATEGORY_ORDER } from '@/lib/types';
 
@@ -36,9 +36,31 @@ export default function ResultsPanel({ findings, onLocate, activeMarkerKind, max
     return o;
   });
 
+  // Gemini-style soft fade at the top/bottom edges — only when there is more to
+  // scroll in that direction, so content dissolves into the background.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [fade, setFade] = useState({ top: false, bottom: false });
+  const recompute = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const top = el.scrollTop > 1;
+    const bottom = el.scrollTop + el.clientHeight < el.scrollHeight - 1;
+    setFade((f) => (f.top === top && f.bottom === bottom ? f : { top, bottom }));
+  }, []);
+  useEffect(() => { recompute(); }, [recompute, maxHeight, findings, open]);
+
+  const F = '32px';
+  const maskImage = `linear-gradient(to bottom, ${fade.top ? 'transparent' : '#000'} 0,` +
+    ` #000 ${F}, #000 calc(100% - ${F}), ${fade.bottom ? 'transparent' : '#000'} 100%)`;
+
   return (
     <div className="resultsCol">
-      <div className="resultsScroll" style={maxHeight ? { maxHeight } : undefined}>
+      <div
+        className="resultsScroll"
+        ref={scrollRef}
+        onScroll={recompute}
+        style={{ ...(maxHeight ? { maxHeight } : {}), maskImage, WebkitMaskImage: maskImage }}
+      >
       {cats.map(({ cat, items }, i) => {
         const worst = worstSeverity(items);
         const sorted = [...items].sort((a, b) => SEV_RANK[b.severity] - SEV_RANK[a.severity]);

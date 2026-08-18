@@ -405,23 +405,24 @@ input[type="number"] { width: 76px; min-width: 0; }
    Check applies to the file AND the settings, so it sits above the two cards. */
 .confirmBar {
   grid-column: 1 / -1;
-  display: flex; align-items: center; gap: var(--space-9);
+  /* same columns as the cards above: hint wraps at the upload-card width,
+     the Check button sits in the settings column, right-aligned. */
+  display: grid; grid-template-columns: 1fr 360px; gap: var(--space-8);
+  align-items: center;
 }
 .confirmBar .confirmHint {
-  flex: 1;               /* fill the width up to the button; wrap only there */
   margin-top: 0;
   background: none; border: none; padding: 0;
 }
 .confirmCheck {
-  flex: 0 0 auto;
-  margin-left: auto;               /* anchor to the right edge of the whole content */
+  justify-self: end;
   padding: var(--space-5) var(--space-11);
   font-size: var(--fs-md);
   border-radius: var(--radius-md);
 }
-@media (max-width: 640px) {
-  .confirmBar { flex-direction: column; align-items: stretch; }
-  .confirmCheck { width: 100%; }
+@media (max-width: 900px) {
+  .confirmBar { grid-template-columns: 1fr; }
+  .confirmCheck { justify-self: stretch; }
 }
 
 /* ---------- analyzing ---------- */

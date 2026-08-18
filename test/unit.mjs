@@ -155,9 +155,26 @@ function geomFromBoxes(raw, wPt, hPt) {
   expect(ids['img-rgb'] === 'warning', 'checks: RGB画像=注意');
 }
 
-// ---------------- size estimation ----------------
+// ---------------- pre-check (size + quick facts) ----------------
 {
-  const { estimateSizeFromBytes } = await import('../lib/estimateSize.ts');
+  const { estimateSizeFromBytes, precheckFile } = await import('../lib/estimateSize.ts');
+
+  const pGood = precheckFile(fx('good.pdf'), 3);
+  expect(pGood?.kind === 'pdf' && pGood.hasTrimBox === true, 'precheck: good.pdf TrimBoxあり');
+  expect(pGood !== null && Math.abs((pGood.bleedMm ?? 0) - 3) < 0.2,
+    `precheck: good.pdf 塗り足し実測≈3mm (got ${pGood?.bleedMm})`);
+  expect(pGood?.pageCount === 1, `precheck: good.pdf 1ページ (got ${pGood?.pageCount})`);
+  expect(pGood?.colorHint === 'cmyk', `precheck: good.pdf カラー=CMYK (got ${pGood?.colorHint})`);
+  expect(pGood?.encrypted === false && pGood?.fontsNotEmbedded === 0, 'precheck: good.pdf 暗号化/フォント問題なし');
+
+  const pBad = precheckFile(fx('bad.pdf'), 3);
+  expect(pBad?.hasTrimBox === false, 'precheck: bad.pdf TrimBoxなし');
+  expect(pBad?.colorHint === 'rgb-mixed', `precheck: bad.pdf カラー=RGB混在 (got ${pBad?.colorHint})`);
+
+  const pPng = precheckFile(fx('small.png'), 3);
+  expect(pPng?.kind === 'image' && pPng.image?.dpi === 72 && pPng.image?.format === 'png',
+    `precheck: small.png 画像情報 (got ${JSON.stringify(pPng?.image)})`);
+  expect(pPng?.colorHint === 'rgb-mixed', 'precheck: small.png カラー=RGB');
 
   const eGood = estimateSizeFromBytes(fx('good.pdf'), 3);
   expect(eGood?.presetId === 'a4' && !eGood.landscape,

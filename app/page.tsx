@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import type { AnalysisResult, Finding, MarkerKind, Settings } from '@/lib/types';
 import { DEFAULT_SETTINGS, MM_PER_PT } from '@/lib/types';
 import { PAPER_PRESETS, paperSizeMm } from '@/lib/presets';
-import type { SizeEstimate } from '@/lib/estimateSize';
+import type { PrecheckInfo } from '@/lib/estimateSize';
 import ResultsPanel, { worstSeverity } from '@/components/ResultsPanel';
 import Preview2D, { MARKER_STYLE } from '@/components/Preview2D';
 import SettingsForm from '@/components/SettingsForm';
@@ -108,16 +108,16 @@ export default function Home() {
     if (!files || !files[0]) return;
     fileRef.current = files[0];
     setPhase('confirm');
-    setEstimate(null);
+    setPre(null);
     setEstimating(true);
     const f = files[0];
     void (async () => {
       try {
         const buf = new Uint8Array(await f.arrayBuffer());
-        const { estimateSizeFromBytes } = await import('@/lib/estimateSize');
-        setEstimate(estimateSizeFromBytes(buf, settings.bleedMm));
+        const { precheckFile } = await import('@/lib/estimateSize');
+        setPre(precheckFile(buf, settings.bleedMm));
       } catch {
-        setEstimate(null);
+        setPre(null);
       } finally {
         setEstimating(false);
       }
@@ -138,22 +138,23 @@ export default function Home() {
     try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* quota */ }
   }, [settings]);
 
-  // ---- size estimation state ----
-  const [estimate, setEstimate] = useState<SizeEstimate | null>(null);
+  // ---- pre-check (size estimate + quick facts) state ----
+  const [pre, setPre] = useState<PrecheckInfo | null>(null);
   const [estimating, setEstimating] = useState(false);
 
   const estimateMatchesSettings = useMemo(() => {
-    if (!estimate) return false;
+    if (!pre?.size) return false;
     const cur = paperSizeMm(settings.paperId, settings.customWmm, settings.customHmm, settings.landscape);
-    return Math.abs(cur.wMm - estimate.wMm) <= 0.6 && Math.abs(cur.hMm - estimate.hMm) <= 0.6;
-  }, [estimate, settings]);
+    return Math.abs(cur.wMm - pre.size.wMm) <= 0.6 && Math.abs(cur.hMm - pre.size.hMm) <= 0.6;
+  }, [pre, settings]);
 
   const applyEstimate = useCallback(() => {
-    if (!estimate) return;
-    setSettings((s) => estimate.presetId
-      ? { ...s, paperId: estimate.presetId!, landscape: estimate.landscape }
-      : { ...s, paperId: 'custom', customWmm: estimate.wMm, customHmm: estimate.hMm, landscape: false });
-  }, [estimate]);
+    const est = pre?.size;
+    if (!est) return;
+    setSettings((s) => est.presetId
+      ? { ...s, paperId: est.presetId!, landscape: est.landscape }
+      : { ...s, paperId: 'custom', customWmm: est.wMm, customHmm: est.hMm, landscape: false });
+  }, [pre]);
 
   const summary = useMemo(() => {
     if (!result) return null;
@@ -252,29 +253,85 @@ export default function Home() {
                 </div>
                 <div className="estimateBox">
                   {estimating ? (
-                    <span className="estWait">データから仕上がりサイズを推定中…</span>
-                  ) : estimate ? (
+                    <span className="estWait">データを精査中…</span>
+                  ) : pre ? (
                     <>
-                      <div className="estHead">データからの推定仕上がりサイズ</div>
-                      <div className="estRow">
-                        <span className="estValue">
-                          {estimate.presetId
-                            ? `${PAPER_PRESETS.find((p) => p.id === estimate.presetId)?.label ?? ''}${estimate.landscape ? ' 横' : ''}`
-                            : `${estimate.wMm}×${estimate.hMm}mm (カスタム)`}
+                      <div className="estHead">データからの読み取り結果 (事前精査)</div>
+                      <div className="pcGrid">
+                        <span className="pcLabel">推定仕上がり</span>
+                        <span className="pcValue">
+                          {pre.size ? (
+                            <>
+                              <span className="estValue">
+                                {pre.size.presetId
+                                  ? `${PAPER_PRESETS.find((p) => p.id === pre.size!.presetId)?.label ?? ''}${pre.size.landscape ? ' 横' : ''}`
+                                  : `${pre.size.wMm}×${pre.size.hMm}mm (カスタム)`}
+                              </span>
+                              {estimateMatchesSettings ? (
+                                <span className="estOk">✓ 設定と一致</span>
+                              ) : (
+                                <button className="btn small" onClick={applyEstimate}>この推定サイズを使用</button>
+                              )}
+                              <span className="pcSub">{pre.size.sourceLabel}</span>
+                            </>
+                          ) : (
+                            <span className="pcDim">推定不可 (解像度情報なし) — 右の設定で指定してください</span>
+                          )}
                         </span>
-                        {estimateMatchesSettings ? (
-                          <span className="estOk">✓ 現在の設定と一致しています</span>
-                        ) : (
-                          <button className="btn small" onClick={applyEstimate}>
-                            この推定サイズを使用
-                          </button>
+
+                        <span className="pcLabel">塗り足し</span>
+                        <span className="pcValue">
+                          {pre.kind === 'pdf' ? (
+                            pre.hasTrimBox && pre.bleedMm !== null ? (
+                              pre.bleedMm >= settings.bleedMm - 0.3
+                                ? <span className="pcOk">約{pre.bleedMm}mm ✓</span>
+                                : pre.bleedMm > 0.3
+                                  ? <span className="pcWarn">約{pre.bleedMm}mm (必要: {settings.bleedMm}mm) ⚠</span>
+                                  : <span className="pcWarn">なし ⚠</span>
+                            ) : <span className="pcDim">TrimBox未設定のため測定不可 (本チェックでサイズから判定)</span>
+                          ) : <span className="pcDim">画像入稿のため本チェックで判定</span>}
+                        </span>
+
+                        <span className="pcLabel">ページ数</span>
+                        <span className="pcValue">{pre.pageCount ?? '—'}</span>
+
+                        <span className="pcLabel">カラー</span>
+                        <span className="pcValue">
+                          {pre.colorHint === 'cmyk' && <span className="pcOk">CMYK ✓</span>}
+                          {pre.colorHint === 'rgb-mixed' && <span className="pcWarn">RGBを含む ⚠</span>}
+                          {pre.colorHint === 'gray' && 'グレースケール'}
+                          {pre.colorHint === 'unknown' && <span className="pcDim">判定不能</span>}
+                        </span>
+
+                        {pre.image && (
+                          <>
+                            <span className="pcLabel">画像情報</span>
+                            <span className="pcValue">
+                              {pre.image.format.toUpperCase()} ・ {pre.image.colorSpace} ・ {pre.image.width}×{pre.image.height}px
+                              {pre.image.dpi ? ` ・ ${pre.image.dpi}dpi` : ' ・ 解像度情報なし'}
+                              {pre.image.hasAlpha && <span className="pcWarn"> ・ 透明あり ⚠</span>}
+                            </span>
+                          </>
+                        )}
+
+                        {(pre.encrypted || pre.fontsNotEmbedded > 0 || pre.spotColors > 0) && (
+                          <>
+                            <span className="pcLabel">注意</span>
+                            <span className="pcValue pcWarn">
+                              {[
+                                pre.encrypted && '暗号化あり',
+                                pre.fontsNotEmbedded > 0 && `未埋め込みフォント ${pre.fontsNotEmbedded}書体`,
+                                pre.spotColors > 0 && `特色 ${pre.spotColors}色`,
+                              ].filter(Boolean).join(' ・ ')} ⚠
+                            </span>
+                          </>
                         )}
                       </div>
-                      <div className="estSrc">{estimate.sourceLabel}</div>
+                      <div className="estSrc">※事前精査の概要です。詳細な検査は「チェックを開始」後に実施されます。</div>
                     </>
                   ) : (
                     <span className="estNone">
-                      サイズを自動推定できませんでした (解像度情報の無い画像など)。右の設定で仕上がりサイズを指定してください。
+                      データを精査できませんでした。右の設定で仕上がりサイズを指定し、そのままチェックを開始してください。
                     </span>
                   )}
                 </div>

@@ -27,16 +27,20 @@ const THEME_KEY = 'preflight-pro:theme';
 
 // In-page anchor scroll: offset for the sticky header + gap, eased over ~0.3s.
 const SCROLL_OFFSET = 60; // header (44) + breathing room
-function smoothScrollTo(targetY: number, duration = 800) {
+function smoothScrollTo(targetY: number, duration = 1000) {
   const reduce = typeof matchMedia !== 'undefined'
     && matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const y = Math.max(0, targetY);
+  // clamp to the actually reachable range so the ease lands exactly on the
+  // target — otherwise the browser hard-clamps at the top/bottom mid-glide
+  // and the motion stops abruptly.
+  const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+  const y = Math.min(maxScroll, Math.max(0, targetY));
   if (reduce) { window.scrollTo(0, y); return; }
   const start = window.scrollY;
   const change = y - start;
   const t0 = performance.now();
-  // easeInOutQuart — gentle ease in and out for an elegant, unhurried glide
-  const ease = (t: number) => (t < 0.5 ? 8 * t * t * t * t : 1 - Math.pow(-2 * t + 2, 4) / 2);
+  // easeInOutQuint — soft ease in, and an especially gentle, drawn-out stop
+  const ease = (t: number) => (t < 0.5 ? 16 * t * t * t * t * t : 1 - Math.pow(-2 * t + 2, 5) / 2);
   const step = (now: number) => {
     const p = Math.min(1, (now - t0) / duration);
     window.scrollTo(0, start + change * ease(p));

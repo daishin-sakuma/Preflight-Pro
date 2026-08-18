@@ -342,6 +342,8 @@ export default function Home() {
     <>
       <header className="header">
         <button className="logo" onClick={goHome} title="Back to top" aria-label="Back to top">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="logoImg" src="/logo.png" alt="" width={20} height={20} />
           <span className="mark">Preflight</span>
         </button>
         <button

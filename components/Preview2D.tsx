@@ -6,9 +6,12 @@
 // Deep zoom stays crisp: instead of upscaling a fixed bitmap (jagged/blurry),
 // the current PDF page is re-rendered at a higher resolution on demand, bounded
 // by a pixel budget. On-screen geometry is preserved across resolution swaps.
+//
+// `finished` mode (all overlays off) crops to the trim box so the 2D view shows
+// the trimmed finished piece — matching the 3D preview's behaviour.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { AnalysisResult, MarkerKind, Settings } from '@/lib/types';
+import type { AnalysisResult, MarkerKind, PageGeom, Settings } from '@/lib/types';
 import { renderOverlays, MARKER_STYLE } from '@/lib/overlay';
 
 export { MARKER_STYLE };
@@ -21,12 +24,29 @@ interface Props {
   showGuides: boolean;
   showDims: boolean;               // dimension annotations (寸法表示)
   markerKind: MarkerKind | null;   // active problem-spot overlay
+  finished: boolean;               // all overlays off → show the trimmed finished piece
 }
 
 // max pixels a re-rendered page canvas may use (~96MB at 4 bytes/px)
 const PIXEL_BUDGET = 24_000_000;
 
-export default function Preview2D({ result, settings, pageIdx, showTac, showGuides, showDims, markerKind }: Props) {
+// crop a full-page canvas (rendered at `scale` px/pt) to its trim box
+function cropToTrim(src: HTMLCanvasElement, geom: PageGeom, scale: number): HTMLCanvasElement {
+  const trim = geom.trimBoxPt;
+  if (!trim) return src;
+  const vb = geom.viewBoxPt ?? geom.mediaBoxPt;
+  const x = (trim[0] - vb[0]) * scale;
+  const w = (trim[2] - trim[0]) * scale;
+  const h = (trim[3] - trim[1]) * scale;
+  const y = src.height - (trim[3] - vb[1]) * scale;
+  const out = document.createElement('canvas');
+  out.width = Math.max(2, Math.round(w));
+  out.height = Math.max(2, Math.round(h));
+  out.getContext('2d')!.drawImage(src, x, y, w, h, 0, 0, out.width, out.height);
+  return out;
+}
+
+export default function Preview2D({ result, settings, pageIdx, showTac, showGuides, showDims, markerKind, finished }: Props) {
   const baseRef = useRef<HTMLCanvasElement>(null);
   const overRef = useRef<HTMLCanvasElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -37,11 +57,11 @@ export default function Preview2D({ result, settings, pageIdx, showTac, showGuid
   const [pct, setPct] = useState(100);
   const drag = useRef<{ x: number; y: number } | null>(null);
 
-  // current displayed resolution (px per pt). Mirrored to state so the overlay
+  // current displayed resolution (px per pt). Mirrored to state so the draw
   // effect redraws at the right scale after a re-render swaps the base bitmap.
   const srcScale = useRef(result.renderScale);
   const [loadedScale, setLoadedScale] = useState(result.renderScale);
-  const hiResCanvas = useRef<HTMLCanvasElement | null>(null); // current hi-res render (or null = base preview)
+  const hiResCanvas = useRef<HTMLCanvasElement | null>(null); // current full-page hi-res render (or null = base preview)
   const hiResToken = useRef(0);                               // cancels stale async renders
   const hiResTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -53,7 +73,7 @@ export default function Preview2D({ result, settings, pageIdx, showTac, showGuid
     setPct(Math.round((v.z / (v.fitZ || 1)) * 100));
   }, []);
 
-  // fit the page into the viewport (= 100%)
+  // fit the currently displayed canvas into the viewport (= 100%)
   const fit = useCallback(() => {
     const vp = viewportRef.current, base = baseRef.current, l = layerRef.current;
     if (!vp || !base || !l) return;
@@ -74,23 +94,6 @@ export default function Preview2D({ result, settings, pageIdx, showTac, showGuid
     return Math.max(result.renderScale, Math.min(60, Math.sqrt(PIXEL_BUDGET / (wPt * hPt))));
   }, [result, pageIdx]);
 
-  // swap the displayed bitmap to a different resolution while keeping the exact
-  // same on-screen position/size (adjust z & fitZ by the resolution ratio).
-  const swapResolution = useCallback((canvas: HTMLCanvasElement, newScale: number) => {
-    const base = baseRef.current, l = layerRef.current;
-    if (!base || !l) return;
-    const f = newScale / srcScale.current;
-    view.current.z /= f;
-    view.current.fitZ /= f;
-    srcScale.current = newScale;
-    base.width = canvas.width; base.height = canvas.height;
-    base.getContext('2d')!.drawImage(canvas, 0, 0);
-    l.style.width = `${canvas.width}px`;
-    l.style.height = `${canvas.height}px`;
-    setLoadedScale(newScale); // triggers the overlay effect to resize & redraw at newScale
-    apply();
-  }, [apply]);
-
   // after zoom settles, re-render the page sharper (or drop back to the base
   // preview when zoomed out) so what's on screen is never an upscaled bitmap.
   const scheduleHiRes = useCallback(() => {
@@ -106,16 +109,22 @@ export default function Preview2D({ result, settings, pageIdx, showTac, showGuid
       if (!wantUp && !wantDown) return;
       const token = ++hiResToken.current;
       if (wantDown) {
+        const f = result.renderScale / srcScale.current;
+        view.current.z /= f; view.current.fitZ /= f;
+        srcScale.current = result.renderScale;
         hiResCanvas.current = null;
-        swapResolution(result.previews[pageIdx], result.renderScale);
+        setLoadedScale(result.renderScale);
         return;
       }
       const canvas = await result.renderPage!(pageIdx, target);
       if (!canvas || token !== hiResToken.current) return; // stale (zoomed again / changed page)
+      const f = target / srcScale.current;
+      view.current.z /= f; view.current.fitZ /= f;
+      srcScale.current = target;
       hiResCanvas.current = canvas;
-      swapResolution(canvas, target);
+      setLoadedScale(target);
     }, 160);
-  }, [result, pageIdx, maxScale, swapResolution]);
+  }, [result, pageIdx, maxScale]);
 
   // zoom keeping the given viewport point fixed (cursor-centered for wheel)
   const zoomAt = useCallback((px: number, py: number, factor: number) => {
@@ -175,14 +184,16 @@ export default function Preview2D({ result, settings, pageIdx, showTac, showGuid
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [result, pageIdx]);
 
-  // draw the base bitmap + overlays at the currently loaded resolution
+  // draw the base bitmap (+ overlays), cropping to trim in finished mode
   useEffect(() => {
     const base = baseRef.current, over = overRef.current, l = layerRef.current;
     if (!base || !over || !l) return;
+    const geom = result.pages[pageIdx];
     const useHi = hiResCanvas.current && Math.abs(loadedScale - result.renderScale) > 1e-6;
-    const src = useHi ? hiResCanvas.current! : result.previews[pageIdx];
-    if (!src) return;
+    const raw = useHi ? hiResCanvas.current! : result.previews[pageIdx];
+    if (!raw || !geom) return;
     const scale = useHi ? loadedScale : result.renderScale;
+    const src = finished ? cropToTrim(raw, geom, scale) : raw;
 
     base.width = src.width; base.height = src.height;
     over.width = src.width; over.height = src.height;
@@ -190,8 +201,8 @@ export default function Preview2D({ result, settings, pageIdx, showTac, showGuid
     l.style.width = `${src.width}px`;
     l.style.height = `${src.height}px`;
 
-    // refit only when a different page/file is shown (keeps zoom across toggles)
-    const pageKey = `${result.fileName}:${pageIdx}:${result.previews[pageIdx]?.width}`;
+    // refit when a different page/file/mode is shown (keeps zoom across toggles)
+    const pageKey = `${result.fileName}:${pageIdx}:${result.previews[pageIdx]?.width}:${finished}`;
     if (pageKey !== lastPageKey.current) {
       lastPageKey.current = pageKey;
       fit();
@@ -200,8 +211,10 @@ export default function Preview2D({ result, settings, pageIdx, showTac, showGuid
     }
 
     over.getContext('2d')!.clearRect(0, 0, over.width, over.height);
-    renderOverlays(over, { result, settings, pageIdx, showTac, showGuides, showDims, markerKind, scaleOverride: scale });
-  }, [result, settings, pageIdx, showTac, showGuides, showDims, markerKind, loadedScale, fit, apply]);
+    if (!finished) {
+      renderOverlays(over, { result, settings, pageIdx, showTac, showGuides, showDims, markerKind, scaleOverride: scale });
+    }
+  }, [result, settings, pageIdx, showTac, showGuides, showDims, markerKind, finished, loadedScale, fit, apply]);
 
 
   return (

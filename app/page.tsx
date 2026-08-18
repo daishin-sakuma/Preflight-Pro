@@ -532,6 +532,7 @@ export default function Home() {
                   showGuides={showGuides}
                   showDims={showDims}
                   markerKind={markerKind}
+                  finished={!overlaysOn}
                 />
               )}
               {result.pageCount > 1 && (
@@ -592,7 +593,10 @@ export default function Home() {
                   Drag to rotate / wheel to zoom (cursor-centered)
                 </span>
               ) : (
-                <span className="note">Wheel to zoom (cursor-centered) / drag to pan</span>
+                <span className="note">
+                  {!overlaysOn && 'Finished (trimmed) preview · '}
+                  Wheel to zoom (cursor-centered) / drag to pan
+                </span>
               )}
             </div>
             {(

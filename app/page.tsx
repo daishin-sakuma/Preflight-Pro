@@ -545,15 +545,36 @@ export default function Home() {
           </div>
 
           <div className={`summaryBanner ${summary.errs ? 'fail' : summary.warns ? 'warn' : 'pass'}`}>
-            {summary.errs
-              ? `Problems were found that need fixing`
-              : summary.warns
-                ? `Ready to submit, but some items are worth reviewing`
-                : `All checks passed`}
+            <span className="sbIcon" aria-hidden="true">
+              {summary.errs ? (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
+                  strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="9" /><path d="m14.5 9.5-5 5M9.5 9.5l5 5" />
+                </svg>
+              ) : summary.warns ? (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
+                  strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+                  <path d="M12 9v4M12 17h.01" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
+                  strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="9" /><path d="m8.5 12 2.5 2.5 4.5-5" />
+                </svg>
+              )}
+            </span>
+            <span className="sbText">
+              {summary.errs
+                ? `Problems were found that need fixing`
+                : summary.warns
+                  ? `Ready to submit, but some items are worth reviewing`
+                  : `All checks passed`}
+            </span>
             <span className="chips">
-              {summary.errs > 0 && <span className="chip err">Errors {summary.errs}</span>}
-              {summary.warns > 0 && <span className="chip warn">Warnings {summary.warns}</span>}
-              <span className="chip ok">OK {summary.oks}</span>
+              {summary.errs > 0 && <span className="chip err"><i />Errors <b>{summary.errs}</b></span>}
+              {summary.warns > 0 && <span className="chip warn"><i />Warnings <b>{summary.warns}</b></span>}
+              <span className="chip ok"><i />OK <b>{summary.oks}</b></span>
             </span>
           </div>
 

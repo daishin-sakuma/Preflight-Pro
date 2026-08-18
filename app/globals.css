@@ -53,9 +53,6 @@
   --shadow-doc: 0 8px 28px rgba(15, 20, 30, 0.35), 0 2px 8px rgba(15, 20, 30, 0.2);
 }
 [data-theme='light'] .header { background: #ffffff; border-bottom: 1px solid var(--border); }
-[data-theme='light'] .summaryBanner.pass { color: #166534; }
-[data-theme='light'] .summaryBanner.warn { color: #92400e; }
-[data-theme='light'] .summaryBanner.fail { color: #991b1b; }
 [data-theme='light'] .status.ok { color: #ffffff; }
 [data-theme='light'] .status.warning { color: #ffffff; }
 [data-theme='light'] .status.info { background: #dfe3ea; color: #3c4350; }
@@ -323,24 +320,33 @@ input[type="number"] { width: 76px; min-width: 0; }
 .summaryBanner {
   grid-column: 1 / -1;
   border-radius: var(--radius);
-  padding: 10px 16px;
-  display: flex; align-items: center; gap: 14px;
+  padding: 12px 16px;
+  display: flex; align-items: center; gap: 11px;
   font-weight: 600; font-size: 13.5px;
+  color: var(--text);
   border: 1px solid var(--border);
-  border-left-width: 3px;
   background: var(--panel);
 }
-.summaryBanner.pass { border-left-color: var(--ok); color: #7ee2a8; }
-.summaryBanner.warn { border-left-color: var(--warn); color: #e5b95c; }
-.summaryBanner.fail { border-left-color: var(--err); color: #ff8f85; }
-.summaryBanner .chips { display: flex; gap: 6px; margin-left: auto; font-size: 11px; }
+/* subtle severity tint — restrained, not a loud coloured banner */
+.summaryBanner.pass { background: color-mix(in srgb, var(--ok) 6%, var(--panel)); border-color: color-mix(in srgb, var(--ok) 22%, var(--border)); }
+.summaryBanner.warn { background: color-mix(in srgb, var(--warn) 7%, var(--panel)); border-color: color-mix(in srgb, var(--warn) 24%, var(--border)); }
+.summaryBanner.fail { background: color-mix(in srgb, var(--err) 7%, var(--panel)); border-color: color-mix(in srgb, var(--err) 26%, var(--border)); }
+.sbIcon { display: inline-flex; flex: 0 0 20px; width: 20px; height: 20px; }
+.sbIcon svg { width: 20px; height: 20px; display: block; }
+.summaryBanner.pass .sbIcon { color: var(--ok); }
+.summaryBanner.warn .sbIcon { color: var(--warn); }
+.summaryBanner.fail .sbIcon { color: var(--err); }
+.sbText { color: var(--text); }
+.summaryBanner .chips { display: flex; align-items: center; gap: 16px; margin-left: auto; font-size: 12px; }
 .chip {
-  border-radius: var(--radius-sm); padding: 1px 10px; font-weight: 700;
-  border: 1px solid; background: transparent;
+  display: inline-flex; align-items: center; gap: 7px;
+  font-weight: 500; color: var(--muted); white-space: nowrap;
 }
-.chip.err { color: var(--err); border-color: var(--err); }
-.chip.warn { color: var(--warn); border-color: var(--warn); }
-.chip.ok { color: var(--ok); border-color: var(--ok); }
+.chip i { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 7px; }
+.chip b { font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+.chip.err i { background: var(--err); }
+.chip.warn i { background: var(--warn); }
+.chip.ok i { background: var(--ok); }
 
 /* ---------- document window (preview) ---------- */
 .previewCard { overflow: hidden; }

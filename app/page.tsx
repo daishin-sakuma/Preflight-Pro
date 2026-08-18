@@ -455,7 +455,7 @@ export default function Home() {
                           </span>
                         </div>
                       )}
-                      <div className="estSrc">Pre-check summary only. The full inspection runs after you press Start check.</div>
+                      <div className="estSrc">Pre-check summary only. The full inspection runs after you press Check.</div>
                     </>
                   ) : (
                     <span className="estNone">
@@ -470,7 +470,7 @@ export default function Home() {
                 </div>
                 <div className="confirmActions">
                   <button className="btn big" onClick={() => fileRef.current && runAnalysis(fileRef.current, settings)}>
-                    Start check
+                    Check
                   </button>
                 </div>
               </div>

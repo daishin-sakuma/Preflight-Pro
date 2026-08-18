@@ -46,7 +46,7 @@ try {
     await page.setInputFiles('input[type=file]', join(root, 'test/fixtures', fixture));
     // confirm step: settings review, then explicit start
     await page.waitForSelector('.confirmActions button', { timeout: 30000 });
-    await page.getByRole('button', { name: 'Start check' }).click();
+    await page.getByRole('button', { name: 'Check', exact: true }).click();
     await page.waitForSelector('.summaryBanner', { timeout: 90000 });
   };
 

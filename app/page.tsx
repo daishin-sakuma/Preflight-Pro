@@ -490,16 +490,6 @@ export default function Home() {
                     </span>
                   )}
                 </div>
-                <div className="confirmHint">
-                  Make sure the check settings (finished size, bleed, ink limit, etc.) match
-                  your order before starting. Settings are saved for next time and can also be
-                  changed on the results screen to re-run the check.
-                </div>
-                <div className="confirmActions">
-                  <button className="btn big" onClick={() => fileRef.current && runAnalysis(fileRef.current, settings)}>
-                    Check
-                  </button>
-                </div>
               </div>
             </div>
           </div>
@@ -508,6 +498,19 @@ export default function Home() {
             <div className="cardHead">Check settings</div>
             <div className="cardBody">
               <SettingsForm settings={settings} onChange={set} />
+            </div>
+          </div>
+
+          <div className="confirmBar">
+            <div className="confirmHint">
+              Make sure the file and the check settings (finished size, bleed, ink limit, etc.)
+              match your order before starting. Settings are saved for next time and can also be
+              changed on the results screen to re-run the check.
+            </div>
+            <div className="confirmActions">
+              <button className="btn big" onClick={() => fileRef.current && runAnalysis(fileRef.current, settings)}>
+                Check
+              </button>
             </div>
           </div>
         </div>

@@ -346,6 +346,10 @@ input[type="number"] { width: 76px; min-width: 0; }
   border-radius: var(--radius-sm); padding: var(--space-5) var(--space-6);
 }
 .confirmActions { margin-top: var(--space-8); text-align: center; }
+/* full-width action bar spanning both confirm columns (Check applies to
+   the file AND the settings, so it sits above the two cards' hierarchy) */
+.confirmBar { grid-column: 1 / -1; }
+.confirmBar .confirmHint { margin-top: 0; }
 
 /* ---------- analyzing ---------- */
 .analyzing { max-width: 520px; margin: 110px auto; text-align: center; }

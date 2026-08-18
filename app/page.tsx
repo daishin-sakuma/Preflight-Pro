@@ -324,7 +324,11 @@ export default function Home() {
                 onDragLeave={() => setDrag(false)}
                 onDrop={(e) => { e.preventDefault(); setDrag(false); onFiles(e.dataTransfer.files); }}
               >
-                <div style={{ fontSize: 40 }}>📄</div>
+                <svg className="dropIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z" />
+                  <path d="M14 2v5h5" />
+                </svg>
                 <div className="big">Drag &amp; drop a file</div>
                 <div>or</div>
                 <button className="btn" onClick={() => inputRef.current?.click()}>
@@ -355,7 +359,11 @@ export default function Home() {
               <div className="cardHead">Uploaded file</div>
               <div className="cardBody">
                 <div className="fileSummary">
-                  <span className="fileIcon">📄</span>
+                  <svg className="fileIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z" />
+                    <path d="M14 2v5h5" />
+                  </svg>
                   <div>
                     <div className="fsName">{fileRef.current.name}</div>
                     <div className="fsMeta">

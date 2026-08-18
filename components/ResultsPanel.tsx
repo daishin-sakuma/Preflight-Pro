@@ -42,16 +42,30 @@ export default function ResultsPanel({ findings, onLocate, activeMarkerKind, max
   const scrollRef = useRef<HTMLDivElement>(null);
   const topFadeRef = useRef<HTMLDivElement>(null);
   const botFadeRef = useRef<HTMLDivElement>(null);
-  const recompute = useCallback(() => {
+  // instant = true skips the ease (used for layout changes like the initial
+  // load, so a needed fade is shown from the start rather than animating in).
+  const recompute = useCallback((instant = false) => {
     const el = scrollRef.current;
     if (!el) return;
     const RAMP = 4;
     const top = Math.min(1, Math.max(0, el.scrollTop / RAMP));
     const bottom = Math.min(1, Math.max(0, (el.scrollHeight - el.clientHeight - el.scrollTop) / RAMP));
-    if (topFadeRef.current) topFadeRef.current.style.opacity = String(top);
-    if (botFadeRef.current) botFadeRef.current.style.opacity = String(bottom);
+    const apply = (ref: React.RefObject<HTMLDivElement>, v: number) => {
+      const n = ref.current;
+      if (!n) return;
+      if (instant) {
+        n.style.transition = 'none';
+        n.style.opacity = String(v);
+        requestAnimationFrame(() => { if (n) n.style.transition = ''; }); // re-enable ease
+      } else {
+        n.style.opacity = String(v);
+      }
+    };
+    apply(topFadeRef, top);
+    apply(botFadeRef, bottom);
   }, []);
-  useEffect(() => { recompute(); }, [recompute, maxHeight, findings, open]);
+  // layout-driven updates (mount / height / content) are instant
+  useEffect(() => { recompute(true); }, [recompute, maxHeight, findings, open]);
 
   return (
     <div className="resultsCol">
@@ -59,7 +73,7 @@ export default function ResultsPanel({ findings, onLocate, activeMarkerKind, max
       <div
         className="resultsScroll"
         ref={scrollRef}
-        onScroll={recompute}
+        onScroll={() => recompute()}
         style={maxHeight ? { maxHeight } : undefined}
       >
       {cats.map(({ cat, items }, i) => {

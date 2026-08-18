@@ -461,13 +461,11 @@ input[type="number"] { width: 76px; min-width: 0; }
 }
 .tabInfo .meta { color: var(--muted); white-space: nowrap; }
 .tabAction {
-  display: inline-flex; align-items: center; gap: var(--space-3);
-  background: none; border: none; padding: var(--space-2) var(--space-3);
-  color: var(--accent-strong); font-size: var(--fs-sm); font-weight: var(--fw-semibold);
-  white-space: nowrap; border-radius: var(--radius-sm); transition: color var(--dur);
+  background: none; border: none; padding: 0 var(--space-2);
+  color: var(--muted); font-size: var(--fs-sm); font-weight: var(--fw-medium);
+  white-space: nowrap; transition: color var(--dur);
 }
-.tabAction svg { width: 14px; height: 14px; }
-@media (hover: hover) { .tabAction:hover { text-decoration: underline; } }
+@media (hover: hover) { .tabAction:hover { color: var(--text); } }
 @media (max-width: 620px) { .tabInfo .meta { display: none; } .tabInfo .name { max-width: 120px; } }
 
 .summaryBanner {

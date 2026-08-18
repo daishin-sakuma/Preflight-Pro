@@ -217,7 +217,10 @@ button { font-family: inherit; cursor: pointer; }
 /* ---------- upload / confirm ---------- */
 .uploadWrap {
   max-width: 1060px; margin: var(--space-11) auto; padding: 0 var(--space-9);
-  display: grid; grid-template-columns: 1fr 360px; gap: var(--space-8); align-items: start;
+  display: grid; grid-template-columns: 1fr 360px; gap: var(--space-8);
+  /* equal-height columns so the footer (and right-aligned Check) sits directly
+     below both cards — no big gap above the button when heights differ */
+  align-items: stretch;
 }
 @media (max-width: 900px) { .uploadWrap { grid-template-columns: 1fr; } }
 .uploadWrap.single { grid-template-columns: 1fr; max-width: 720px; }

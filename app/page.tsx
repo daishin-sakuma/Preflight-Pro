@@ -373,7 +373,6 @@ export default function Home() {
 
       {phase === 'confirm' && fileRef.current && (
         <div className="uploadWrap">
-          <div>
             <div className="card">
               <div className="cardHead">Uploaded file</div>
               <div className="cardBody">
@@ -492,7 +491,6 @@ export default function Home() {
                 </div>
               </div>
             </div>
-          </div>
 
           <div className="card">
             <div className="cardHead">Check settings</div>

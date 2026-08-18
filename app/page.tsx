@@ -352,6 +352,10 @@ export default function Home() {
 
   return (
     <>
+      <h1 className="srOnly">
+        Preflight — free browser-based print data preflight &amp; proofing for PDF,
+        Illustrator, JPEG and PNG (RGB/CMYK, ink coverage, bleed, overprint, fonts, resolution)
+      </h1>
       <header className="header">
         <button className="logo" onClick={goHome} title="Back to top" aria-label="Back to top">
           {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -147,6 +147,12 @@ body {
 button { font-family: inherit; cursor: pointer; }
 ::selection { background: var(--accent-dim); }
 
+/* visually hidden but available to screen readers & crawlers */
+.srOnly {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
 /* animate light/dark theme switches at the standard duration. Elements with
    their own `transition` (buttons, etc.) keep it and win the cascade; this only
    provides a default for everything else so colours cross-fade on toggle. */

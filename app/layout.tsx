@@ -8,14 +8,42 @@ const figtree = Figtree({
   variable: '--font-figtree',
 });
 
+const SITE_URL = 'https://preflight-pro.vercel.app';
 const APP_TITLE = 'Preflight — print data check & proofing';
 const APP_DESC =
-  'Preflight PDF / Illustrator / JPEG / PNG print data right in your browser. Checks RGB, total ink coverage, bleed, overprint, resolution and more, with a 3D preview.';
+  'Free browser-based preflight for print data. Check PDF, Illustrator (.ai), JPEG and PNG for RGB vs CMYK, total ink coverage (TAC), bleed and trim, overprint, embedded fonts and effective resolution — with a 3D paper preview. Nothing is uploaded; all analysis runs locally in your browser.';
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://preflight-pro.vercel.app'),
-  title: APP_TITLE,
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: APP_TITLE,
+    template: '%s · Preflight',
+  },
   description: APP_DESC,
+  applicationName: 'Preflight',
+  authors: [{ name: 'Daishin Sakuma' }],
+  creator: 'Daishin Sakuma',
+  publisher: 'Preflight',
+  category: 'Design tools',
+  keywords: [
+    'preflight', 'print preflight', 'prepress', 'print data check', 'proofing',
+    'PDF preflight', 'Illustrator ai check', 'CMYK check', 'RGB to CMYK',
+    'total ink coverage', 'TAC', 'ink limit', 'bleed', 'trim', 'overprint',
+    'font embedding', 'image resolution', 'DPI check', '3D print preview',
+    'browser preflight', 'client-side', '入稿データチェック', '印刷 プリフライト',
+  ],
+  alternates: { canonical: '/' },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+      'max-video-preview': -1,
+    },
+  },
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: 'any' },
@@ -28,8 +56,10 @@ export const metadata: Metadata = {
   openGraph: {
     title: APP_TITLE,
     description: APP_DESC,
+    url: '/',
     type: 'website',
     siteName: 'Preflight',
+    locale: 'en_US',
   },
   twitter: {
     card: 'summary_large_image',
@@ -44,6 +74,28 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'WebApplication',
+    name: 'Preflight',
+    alternateName: APP_TITLE,
+    url: SITE_URL,
+    description: APP_DESC,
+    applicationCategory: 'DesignApplication',
+    operatingSystem: 'Any (web browser)',
+    browserRequirements: 'Requires JavaScript. Runs entirely client-side.',
+    offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+    featureList: [
+      'RGB vs CMYK color check',
+      'Total ink coverage (TAC) / ink limit',
+      'Bleed and trim size check',
+      'Overprint and rich-black detection',
+      'Embedded-font check',
+      'Effective image resolution (DPI) check',
+      '3D paper preview and 2D proof',
+      'Client-side — files never leave the browser',
+    ],
+  };
   return (
     <html lang="en" className={figtree.variable} suppressHydrationWarning>
       <body>
@@ -53,6 +105,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             __html:
               "try{if(localStorage.getItem('preflight-pro:theme')==='light')document.documentElement.dataset.theme='light';}catch(e){}",
           }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
         {children}
       </body>

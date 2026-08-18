@@ -80,7 +80,10 @@ function Rig({ autoRotate, command, wMm, hMm, onFacing, onZoomPct, apiRef }: {
   const controls = useRef<OrbitControlsImpl>(null);
   const lastFacing = useRef<'front' | 'back' | null>(null);
   const lastPct = useRef(0);
-  const anim = useRef<{ from: THREE.Vector3; to: THREE.Vector3; t: number } | null>(null);
+  const anim = useRef<{
+    fromPos: THREE.Vector3; toPos: THREE.Vector3;
+    fromLook: THREE.Vector3; toLook: THREE.Vector3; t: number;
+  } | null>(null);
   const mounted = useRef(false);
 
   // scene units of the sheet (mirrors <Paper/>: long edge = 10 units)
@@ -99,29 +102,40 @@ function Rig({ autoRotate, command, wMm, hMm, onFacing, onZoomPct, apiRef }: {
     return Math.max(fitH, fitW, 6);
   }, [wUnits, hUnits, camera, size]);
 
+  const ORIGIN = new THREE.Vector3(0, 0, 0);
+  const ctrlTarget = () => (controls.current ? controls.current.target.clone() : ORIGIN.clone());
+
   const targetFor = (cmd: ViewCommand['cmd']): THREE.Vector3 => {
     if (cmd === 'front') return new THREE.Vector3(0, 0, fitDist);
     if (cmd === 'back') return new THREE.Vector3(0, 0, -fitDist);
     return VIEW_DIR.clone().multiplyScalar(fitDist); // reset = 3/4 view
   };
 
-  // start a smooth camera tween to `target`, resetting any orbit inertia first
-  const animateTo = (target: THREE.Vector3) => {
+  // Smoothly tween camera position AND the orbit target (look-at point). Tweening
+  // the target too is essential: OrbitControls' target may have been panned away
+  // from the origin, and if we only moved the camera it would snap to the stale
+  // target when control resumes. Also resets leftover orbit inertia.
+  const animateTo = (toPos: THREE.Vector3, toLook: THREE.Vector3) => {
     const c = controls.current;
     if (c) {
       c.enableDamping = false; c.update(); c.enableDamping = true; // flush leftover inertia
       c.enabled = false;                                           // lock input during tween
     }
-    anim.current = { from: camera.position.clone(), to: target.clone(), t: 0 };
+    anim.current = {
+      fromPos: camera.position.clone(), toPos: toPos.clone(),
+      fromLook: ctrlTarget(), toLook: toLook.clone(), t: 0,
+    };
   };
 
   const place = (cmd: ViewCommand['cmd'], animate = false) => {
     const target = targetFor(cmd);
-    if (animate) { animateTo(target); return; }
+    if (animate) { animateTo(target, ORIGIN.clone()); return; }
     anim.current = null;
     camera.position.copy(target);
+    const c = controls.current;
+    if (c) c.target.set(0, 0, 0);
     camera.lookAt(0, 0, 0);
-    controls.current?.update();
+    c?.update();
   };
 
   // explicit front/back/reset commands (animate after first mount)
@@ -139,14 +153,21 @@ function Rig({ autoRotate, command, wMm, hMm, onFacing, onZoomPct, apiRef }: {
     if (a) {
       a.t = Math.min(1, a.t + delta / 0.3);
       const e = 1 - Math.pow(1 - a.t, 3); // easeOutCubic
-      camera.position.lerpVectors(a.from, a.to, e);
-      camera.lookAt(0, 0, 0);
-      if (a.t >= 1) { anim.current = null; if (controls.current) controls.current.enabled = true; }
+      camera.position.lerpVectors(a.fromPos, a.toPos, e);
+      const look = a.fromLook.clone().lerp(a.toLook, e);
+      const c = controls.current;
+      if (c) c.target.copy(look);
+      camera.lookAt(look);
+      if (a.t >= 1) {
+        anim.current = null;
+        if (c) { c.target.copy(a.toLook); c.enabled = true; c.update(); } // sync, no snap
+      }
     }
     // report facing (page indicator) + zoom % (100% = fit distance); live
     const facing = camera.position.z >= 0 ? 'front' : 'back';
     if (facing !== lastFacing.current) { lastFacing.current = facing; onFacing?.(facing); }
-    const pct = Math.round((fitDist / Math.max(0.001, camera.position.length())) * 100);
+    const dist = camera.position.distanceTo(controls.current ? controls.current.target : ORIGIN);
+    const pct = Math.round((fitDist / Math.max(0.001, dist)) * 100);
     if (pct !== lastPct.current) { lastPct.current = pct; onZoomPct?.(pct); }
   });
 
@@ -154,15 +175,16 @@ function Rig({ autoRotate, command, wMm, hMm, onFacing, onZoomPct, apiRef }: {
   useEffect(() => {
     if (!apiRef) return;
     const dolly = (factor: number) => {
-      const len = camera.position.length();
-      const nl = Math.min(MAX_DIST, Math.max(MIN_DIST, len * factor));
-      animateTo(camera.position.clone().setLength(nl));
+      const tgt = ctrlTarget();
+      const offset = camera.position.clone().sub(tgt);
+      const nl = Math.min(MAX_DIST, Math.max(MIN_DIST, offset.length() * factor));
+      animateTo(tgt.clone().add(offset.setLength(nl)), tgt); // zoom toward the current target
     };
     apiRef.current = {
       zoomIn: () => dolly(1 / 1.3),
       zoomOut: () => dolly(1.3),
-      // Fit: keep the currently-viewed page, square it up straight-on, fit size
-      reset: () => animateTo(new THREE.Vector3(0, 0, camera.position.z >= 0 ? fitDist : -fitDist)),
+      // Fit: keep the currently-viewed page, square it up straight-on, recenter
+      reset: () => animateTo(new THREE.Vector3(0, 0, camera.position.z >= 0 ? fitDist : -fitDist), ORIGIN.clone()),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   });

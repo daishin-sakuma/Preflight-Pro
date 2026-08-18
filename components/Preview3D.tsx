@@ -79,6 +79,8 @@ function Rig({ autoRotate, command, wMm, hMm, onFacing, onZoomPct, apiRef }: {
   const controls = useRef<OrbitControlsImpl>(null);
   const lastFacing = useRef<'front' | 'back' | null>(null);
   const lastPct = useRef(0);
+  const anim = useRef<{ from: THREE.Vector3; to: THREE.Vector3; t: number } | null>(null);
+  const mounted = useRef(false);
 
   // scene units of the sheet (mirrors <Paper/>: long edge = 10 units)
   const long = Math.max(wMm, hMm);
@@ -96,47 +98,70 @@ function Rig({ autoRotate, command, wMm, hMm, onFacing, onZoomPct, apiRef }: {
     return Math.max(fitH, fitW, 6);
   }, [wUnits, hUnits, camera, size]);
 
-  const place = (cmd: ViewCommand['cmd']) => {
-    if (cmd === 'front') camera.position.set(0, 0, fitDist);
-    else if (cmd === 'back') camera.position.set(0, 0, -fitDist);
-    else camera.position.copy(VIEW_DIR).multiplyScalar(fitDist);
+  const targetFor = (cmd: ViewCommand['cmd']): THREE.Vector3 => {
+    if (cmd === 'front') return new THREE.Vector3(0, 0, fitDist);
+    if (cmd === 'back') return new THREE.Vector3(0, 0, -fitDist);
+    return VIEW_DIR.clone().multiplyScalar(fitDist); // reset = 3/4 view
+  };
+
+  // start a smooth camera tween to `target`, resetting any orbit inertia first
+  const animateTo = (target: THREE.Vector3) => {
+    const c = controls.current;
+    if (c) {
+      c.enableDamping = false; c.update(); c.enableDamping = true; // flush leftover inertia
+      c.enabled = false;                                           // lock input during tween
+    }
+    anim.current = { from: camera.position.clone(), to: target.clone(), t: 0 };
+  };
+
+  const place = (cmd: ViewCommand['cmd'], animate = false) => {
+    const target = targetFor(cmd);
+    if (animate) { animateTo(target); return; }
+    anim.current = null;
+    camera.position.copy(target);
     camera.lookAt(0, 0, 0);
     controls.current?.update();
   };
 
-  // explicit front/back/reset commands
-  useEffect(() => { place(command.cmd); // eslint-disable-next-line react-hooks/exhaustive-deps
+  // explicit front/back/reset commands (animate after first mount)
+  useEffect(() => { place(command.cmd, mounted.current); mounted.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [command]);
 
-  // default framing: fit the whole piece on mount and whenever the sheet or
-  // viewport changes size (so nothing is ever clipped by default)
+  // default framing: fit on mount / viewport-or-sheet size change (instant)
   useEffect(() => { place('reset'); // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fitDist]);
 
-  // report facing (page indicator) + zoom % (100% = fit distance); live during
-  // drag / wheel / auto-rotate.
-  useFrame(() => {
+  useFrame((_, delta) => {
+    // camera tween (Fit / zoom buttons) — eased, ~0.3s, then stop
+    const a = anim.current;
+    if (a) {
+      a.t = Math.min(1, a.t + delta / 0.3);
+      const e = 1 - Math.pow(1 - a.t, 3); // easeOutCubic
+      camera.position.lerpVectors(a.from, a.to, e);
+      camera.lookAt(0, 0, 0);
+      if (a.t >= 1) { anim.current = null; if (controls.current) controls.current.enabled = true; }
+    }
+    // report facing (page indicator) + zoom % (100% = fit distance); live
     const facing = camera.position.z >= 0 ? 'front' : 'back';
     if (facing !== lastFacing.current) { lastFacing.current = facing; onFacing?.(facing); }
     const pct = Math.round((fitDist / Math.max(0.001, camera.position.length())) * 100);
     if (pct !== lastPct.current) { lastPct.current = pct; onZoomPct?.(pct); }
   });
 
-  // discrete zoom (dolly) + reset, driven by the on-screen zoom control
+  // discrete zoom (dolly) + fit, driven by the on-screen zoom control (eased)
   useEffect(() => {
     if (!apiRef) return;
     const dolly = (factor: number) => {
       const len = camera.position.length();
       const nl = Math.min(MAX_DIST, Math.max(MIN_DIST, len * factor));
-      camera.position.setLength(nl);
-      camera.lookAt(0, 0, 0);
-      controls.current?.update();
+      animateTo(camera.position.clone().setLength(nl));
     };
     apiRef.current = {
       zoomIn: () => dolly(1 / 1.3),
       zoomOut: () => dolly(1.3),
       // Fit: keep the currently-viewed page, square it up straight-on, fit size
-      reset: () => place(camera.position.z >= 0 ? 'front' : 'back'),
+      reset: () => animateTo(new THREE.Vector3(0, 0, camera.position.z >= 0 ? fitDist : -fitDist)),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   });

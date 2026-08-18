@@ -72,6 +72,14 @@ const Preview2D = forwardRef<Preview2DHandle, Props>(function Preview2D(
   const hiResCanvas = useRef<HTMLCanvasElement | null>(null); // current full-page hi-res render (or null = base preview)
   const hiResToken = useRef(0);                               // cancels stale async renders
   const hiResTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const smoothTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // toggle a CSS transition on the zoom layer so button-driven zoom/fit eases
+  // over the standard duration, while wheel/drag stay instant.
+  const setSmooth = useCallback((on: boolean) => {
+    const l = layerRef.current;
+    if (l) l.style.transition = on ? 'transform var(--dur) ease' : 'none';
+  }, []);
 
   const apply = useCallback(() => {
     const l = layerRef.current;
@@ -135,7 +143,7 @@ const Preview2D = forwardRef<Preview2DHandle, Props>(function Preview2D(
   }, [result, pageIdx, maxScale]);
 
   // zoom keeping the given viewport point fixed (cursor-centered for wheel)
-  const zoomAt = useCallback((px: number, py: number, factor: number) => {
+  const zoomAt = useCallback((px: number, py: number, factor: number, smooth = false) => {
     const v = view.current;
     const nz = Math.min(v.fitZ * 12, Math.max(v.fitZ * 0.15, v.z * factor));
     const cx = (px - v.tx) / v.z;
@@ -143,20 +151,28 @@ const Preview2D = forwardRef<Preview2DHandle, Props>(function Preview2D(
     v.tx = px - cx * nz;
     v.ty = py - cy * nz;
     v.z = nz;
+    setSmooth(smooth);
     apply();
-    scheduleHiRes();
-  }, [apply, scheduleHiRes]);
+    if (smooth) {
+      if (smoothTimer.current) clearTimeout(smoothTimer.current);
+      smoothTimer.current = setTimeout(() => { setSmooth(false); scheduleHiRes(); }, 320);
+    } else {
+      scheduleHiRes();
+    }
+  }, [apply, scheduleHiRes, setSmooth]);
 
   const zoomButtons = useCallback((factor: number) => {
     const vp = viewportRef.current;
     if (!vp) return;
-    zoomAt(vp.clientWidth / 2, vp.clientHeight / 2, factor);
+    zoomAt(vp.clientWidth / 2, vp.clientHeight / 2, factor, true); // eased
   }, [zoomAt]);
 
   const fitAndRevert = useCallback(() => {
+    setSmooth(true);
     fit();
-    scheduleHiRes(); // drops back to the light base preview when appropriate
-  }, [fit, scheduleHiRes]);
+    if (smoothTimer.current) clearTimeout(smoothTimer.current);
+    smoothTimer.current = setTimeout(() => { setSmooth(false); scheduleHiRes(); }, 320);
+  }, [fit, scheduleHiRes, setSmooth]);
 
   // imperative zoom controls for keyboard shortcuts driven from the page
   useImperativeHandle(ref, () => ({
@@ -203,6 +219,7 @@ const Preview2D = forwardRef<Preview2DHandle, Props>(function Preview2D(
   useEffect(() => {
     const base = baseRef.current, over = overRef.current, l = layerRef.current;
     if (!base || !over || !l) return;
+    setSmooth(false); // redraws / page changes / hi-res swaps are instant
     const geom = result.pages[pageIdx];
     const useHi = hiResCanvas.current && Math.abs(loadedScale - result.renderScale) > 1e-6;
     const raw = useHi ? hiResCanvas.current! : result.previews[pageIdx];
@@ -229,7 +246,7 @@ const Preview2D = forwardRef<Preview2DHandle, Props>(function Preview2D(
     if (!finished) {
       renderOverlays(over, { result, settings, pageIdx, showTac, showGuides, showDims, markerKind, scaleOverride: scale });
     }
-  }, [result, settings, pageIdx, showTac, showGuides, showDims, markerKind, finished, loadedScale, fit, apply]);
+  }, [result, settings, pageIdx, showTac, showGuides, showDims, markerKind, finished, loadedScale, fit, apply, setSmooth]);
 
 
   return (
@@ -238,6 +255,7 @@ const Preview2D = forwardRef<Preview2DHandle, Props>(function Preview2D(
       ref={viewportRef}
       onPointerDown={(e) => {
         if (e.button !== 0) return;
+        setSmooth(false); // dragging is instant even right after a button zoom
         drag.current = { x: e.clientX, y: e.clientY };
         (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
       }}

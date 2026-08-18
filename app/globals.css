@@ -536,7 +536,6 @@ input[type="number"] { width: 76px; min-width: 0; }
   backdrop-filter: blur(8px);
   user-select: none;
 }
-.kbdBtn { font-size: var(--fs-md); line-height: 1; padding: var(--space-2) var(--space-4); }
 
 /* keyboard shortcuts help modal */
 .shortcutsOverlay {

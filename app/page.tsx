@@ -700,8 +700,6 @@ export default function Home() {
                   ◎ Showing “{MARKER_STYLE[markerKind].label}” ✕
                 </button>
               )}
-              <button className="btn ghost small kbdBtn" title="Keyboard shortcuts (?)"
-                onClick={openShortcuts}>⌨</button>
               {tab === '3d' ? (
                 <span className="note">
                   {paper3d && `${overlaysOn ? 'Data' : 'Trim'} ${Math.round(paper3d.wMm)}×${Math.round(paper3d.hMm)}mm · `}

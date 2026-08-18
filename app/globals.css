@@ -68,7 +68,7 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body { height: 100%; }
 body {
-  font-family: -apple-system, "Segoe UI", "Hiragino Kaku Gothic ProN",
+  font-family: var(--font-figtree), -apple-system, "Segoe UI", "Hiragino Kaku Gothic ProN",
     "Hiragino Sans", "Yu Gothic UI", "Noto Sans JP", sans-serif;
   background: var(--ground);
   color: var(--text);

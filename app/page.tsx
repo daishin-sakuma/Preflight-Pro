@@ -427,6 +427,7 @@ export default function Home() {
                       ◎ {MARKER_STYLE[markerKind].label} の該当箇所を表示中 ✕
                     </button>
                   )}
+                  <span className="note">ホイールでズーム (カーソル中心) / ドラッグで移動</span>
                 </>
               )}
             </div>

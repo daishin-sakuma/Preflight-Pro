@@ -84,6 +84,7 @@ export default function Home() {
   const inputRef = useRef<HTMLInputElement>(null);
   const disposeRef = useRef<(() => void) | null>(null); // releases the previous PDF's retained doc
   const preview2dRef = useRef<Preview2DHandle>(null);
+  const preview3dFitRef = useRef<(() => void) | null>(null);
   const [scMounted, setScMounted] = useState(false); // shortcuts modal in DOM
   const [scOpen, setScOpen] = useState(false);        // shortcuts modal visible (transition)
   const scTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -137,9 +138,16 @@ export default function Home() {
   useEffect(() => {
     if (phase !== 'result') return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
       const t = e.target as HTMLElement | null;
       if (t && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName)) return;
+      // ⌘0 / Ctrl+0 → fit the active preview (overrides browser reset-zoom)
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key === '0') {
+        e.preventDefault();
+        if (tab === '2d') preview2dRef.current?.fit();
+        else preview3dFitRef.current?.();
+        return;
+      }
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
       switch (e.key) {
         // page turning
         case 'ArrowLeft': e.preventDefault(); goPage(-1); break;
@@ -159,7 +167,7 @@ export default function Home() {
         // 2D zoom controls
         case '+': case '=': if (tab === '2d') { e.preventDefault(); preview2dRef.current?.zoomIn(); } break;
         case '-': case '_': if (tab === '2d') { e.preventDefault(); preview2dRef.current?.zoomOut(); } break;
-        case '0': if (tab === '2d') preview2dRef.current?.fit(); break;
+        case '0': if (tab === '2d') preview2dRef.current?.fit(); else preview3dFitRef.current?.(); break;
         // help / dismiss
         case '?': e.preventDefault(); scMounted ? closeShortcuts() : openShortcuts(); break;
         case 'Escape':
@@ -616,6 +624,7 @@ export default function Home() {
                   command={command}
                   stageColor={theme === 'light' ? '#b9bcc2' : '#454547'}
                   onFacing={setFacing3d}
+                  fitRef={preview3dFitRef}
                 />
               )}
               {tab === '2d' && (
@@ -777,7 +786,7 @@ export default function Home() {
               <div className="scGroup">
                 <div className="scGroupTitle">2D proof</div>
                 <div className="scRow"><span><kbd>+</kbd><kbd>−</kbd></span> Zoom in / out</div>
-                <div className="scRow"><span><kbd>0</kbd></span> Fit to view</div>
+                <div className="scRow"><span><kbd>0</kbd><kbd>⌘0</kbd></span> Fit to view</div>
                 <div className="scRow"><span><kbd>?</kbd></span> Toggle this help</div>
               </div>
             </div>

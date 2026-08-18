@@ -45,7 +45,7 @@ export default function ResultsPanel({ findings, onLocate, activeMarkerKind, max
   const recompute = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const RAMP = 16;
+    const RAMP = 4;
     const top = Math.min(1, Math.max(0, el.scrollTop / RAMP));
     const bottom = Math.min(1, Math.max(0, (el.scrollHeight - el.clientHeight - el.scrollTop) / RAMP));
     if (topFadeRef.current) topFadeRef.current.style.opacity = String(top);

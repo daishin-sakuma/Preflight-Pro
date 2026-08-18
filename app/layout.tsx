@@ -8,10 +8,25 @@ const figtree = Figtree({
   variable: '--font-figtree',
 });
 
+const APP_TITLE = 'Preflight — print data check & proofing';
+const APP_DESC =
+  'Preflight PDF / Illustrator / JPEG / PNG print data right in your browser. Checks RGB, total ink coverage, bleed, overprint, resolution and more, with a 3D preview.';
+
 export const metadata: Metadata = {
-  title: 'Preflight — print data check & proofing',
-  description:
-    'Preflight PDF / Illustrator / JPEG / PNG print data right in your browser. Checks RGB, total ink coverage, bleed, overprint, resolution and more, with a 3D preview.',
+  metadataBase: new URL('https://preflight-pro.vercel.app'),
+  title: APP_TITLE,
+  description: APP_DESC,
+  openGraph: {
+    title: APP_TITLE,
+    description: APP_DESC,
+    type: 'website',
+    siteName: 'Preflight',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: APP_TITLE,
+    description: APP_DESC,
+  },
 };
 
 export const viewport: Viewport = {

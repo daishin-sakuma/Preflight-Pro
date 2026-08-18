@@ -84,7 +84,19 @@ export default function Home() {
   const inputRef = useRef<HTMLInputElement>(null);
   const disposeRef = useRef<(() => void) | null>(null); // releases the previous PDF's retained doc
   const preview2dRef = useRef<Preview2DHandle>(null);
-  const [showShortcuts, setShowShortcuts] = useState(false);
+  const [scMounted, setScMounted] = useState(false); // shortcuts modal in DOM
+  const [scOpen, setScOpen] = useState(false);        // shortcuts modal visible (transition)
+  const scTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const openShortcuts = useCallback(() => {
+    if (scTimer.current) clearTimeout(scTimer.current);
+    setScMounted(true);
+    requestAnimationFrame(() => setScOpen(true)); // next frame → enter transition
+  }, []);
+  const closeShortcuts = useCallback(() => {
+    setScOpen(false);
+    if (scTimer.current) clearTimeout(scTimer.current);
+    scTimer.current = setTimeout(() => setScMounted(false), 300); // unmount after exit
+  }, []);
 
   // preview state
   const [tab, setTab] = useState<'3d' | '2d'>('3d');
@@ -149,9 +161,9 @@ export default function Home() {
         case '-': case '_': if (tab === '2d') { e.preventDefault(); preview2dRef.current?.zoomOut(); } break;
         case '0': if (tab === '2d') preview2dRef.current?.fit(); break;
         // help / dismiss
-        case '?': e.preventDefault(); setShowShortcuts((s) => !s); break;
+        case '?': e.preventDefault(); scMounted ? closeShortcuts() : openShortcuts(); break;
         case 'Escape':
-          if (showShortcuts) setShowShortcuts(false);
+          if (scMounted) closeShortcuts();
           else setMarkerKind(null);
           break;
         default: break;
@@ -159,7 +171,7 @@ export default function Home() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [phase, tab, goPage, showShortcuts]);
+  }, [phase, tab, goPage, scMounted, openShortcuts, closeShortcuts]);
 
   // Locate a finding's spots: jump to the 2D view (and its first page).
   const onLocate = useCallback((f: Finding) => {
@@ -678,7 +690,7 @@ export default function Home() {
                 </button>
               )}
               <button className="btn ghost small kbdBtn" title="Keyboard shortcuts (?)"
-                onClick={() => setShowShortcuts(true)}>⌨</button>
+                onClick={openShortcuts}>⌨</button>
               {tab === '3d' ? (
                 <span className="note">
                   {paper3d && `${overlaysOn ? 'Data' : 'Trim'} ${Math.round(paper3d.wMm)}×${Math.round(paper3d.hMm)}mm · `}
@@ -723,12 +735,12 @@ export default function Home() {
         </div>
       )}
 
-      {showShortcuts && (
-        <div className="shortcutsOverlay" onClick={() => setShowShortcuts(false)}>
+      {scMounted && (
+        <div className={`shortcutsOverlay ${scOpen ? 'open' : ''}`} onClick={closeShortcuts}>
           <div className="shortcutsCard" onClick={(e) => e.stopPropagation()}>
             <div className="scHead">
               <span>Keyboard shortcuts</span>
-              <button className="scClose" aria-label="Close" onClick={() => setShowShortcuts(false)}>✕</button>
+              <button className="scClose" aria-label="Close" onClick={closeShortcuts}>✕</button>
             </div>
             <div className="scGrid">
               <div className="scGroup">

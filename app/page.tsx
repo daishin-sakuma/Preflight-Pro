@@ -502,16 +502,14 @@ export default function Home() {
           </div>
 
           <div className="confirmBar">
-            <div className="confirmHint">
+            <p className="confirmHint">
               Make sure the file and the check settings (finished size, bleed, ink limit, etc.)
               match your order before starting. Settings are saved for next time and can also be
               changed on the results screen to re-run the check.
-            </div>
-            <div className="confirmActions">
-              <button className="btn big" onClick={() => fileRef.current && runAnalysis(fileRef.current, settings)}>
-                Check
-              </button>
-            </div>
+            </p>
+            <button className="btn confirmCheck" onClick={() => fileRef.current && runAnalysis(fileRef.current, settings)}>
+              Check
+            </button>
           </div>
         </div>
       )}

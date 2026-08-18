@@ -3,7 +3,7 @@
 // 3D rotatable paper preview (graphic-style): the finished (trimmed) piece
 // rendered onto a thin sheet you can drag-rotate / zoom, with front/back.
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
@@ -64,24 +64,21 @@ function Paper({ front, back, wMm, hMm }: Pick<Props, 'front' | 'back' | 'wMm' |
 
 // viewing direction for the default (three-quarter) view
 const VIEW_DIR = new THREE.Vector3(3.2, 2.2, 12.5).normalize();
+const MIN_DIST = 4;
+const MAX_DIST = 80;
 
-function Rig({ autoRotate, command, wMm, hMm, onFacing }: {
+export interface Zoom3DApi { zoomIn(): void; zoomOut(): void; reset(): void }
+
+function Rig({ autoRotate, command, wMm, hMm, onFacing, onZoomPct, apiRef }: {
   autoRotate: boolean; command: ViewCommand; wMm: number; hMm: number;
   onFacing?: (facing: 'front' | 'back') => void;
+  onZoomPct?: (pct: number) => void;
+  apiRef?: React.MutableRefObject<Zoom3DApi | null>;
 }) {
   const { camera, size } = useThree();
   const controls = useRef<OrbitControlsImpl>(null);
   const lastFacing = useRef<'front' | 'back' | null>(null);
-
-  // report which face points at the camera (front normal is +z); updates live
-  // while dragging / auto-rotating so the page indicator can follow.
-  useFrame(() => {
-    const facing = camera.position.z >= 0 ? 'front' : 'back';
-    if (facing !== lastFacing.current) {
-      lastFacing.current = facing;
-      onFacing?.(facing);
-    }
-  });
+  const lastPct = useRef(0);
 
   // scene units of the sheet (mirrors <Paper/>: long edge = 10 units)
   const long = Math.max(wMm, hMm);
@@ -116,6 +113,33 @@ function Rig({ autoRotate, command, wMm, hMm, onFacing }: {
   useEffect(() => { place('reset'); // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fitDist]);
 
+  // report facing (page indicator) + zoom % (100% = fit distance); live during
+  // drag / wheel / auto-rotate.
+  useFrame(() => {
+    const facing = camera.position.z >= 0 ? 'front' : 'back';
+    if (facing !== lastFacing.current) { lastFacing.current = facing; onFacing?.(facing); }
+    const pct = Math.round((fitDist / Math.max(0.001, camera.position.length())) * 100);
+    if (pct !== lastPct.current) { lastPct.current = pct; onZoomPct?.(pct); }
+  });
+
+  // discrete zoom (dolly) + reset, driven by the on-screen zoom control
+  useEffect(() => {
+    if (!apiRef) return;
+    const dolly = (factor: number) => {
+      const len = camera.position.length();
+      const nl = Math.min(MAX_DIST, Math.max(MIN_DIST, len * factor));
+      camera.position.setLength(nl);
+      camera.lookAt(0, 0, 0);
+      controls.current?.update();
+    };
+    apiRef.current = {
+      zoomIn: () => dolly(1 / 1.3),
+      zoomOut: () => dolly(1.3),
+      reset: () => place('reset'),
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  });
+
   return (
     <OrbitControls
       ref={controls}
@@ -130,18 +154,29 @@ function Rig({ autoRotate, command, wMm, hMm, onFacing }: {
 }
 
 export default function Preview3D({ front, back, wMm, hMm, autoRotate, command, stageColor = '#454547', onFacing }: Props) {
+  const [pct, setPct] = useState(100);
+  const api = useRef<Zoom3DApi | null>(null);
   return (
-    <Canvas
-      camera={{ position: [3.2, 2.2, 12.5], fov: 40 }}
-      style={{ width: '100%', height: '100%' }}
-      gl={{ antialias: true, preserveDrawingBuffer: true }}
-    >
-      <color attach="background" args={[stageColor]} />
-      <ambientLight intensity={1.15} />
-      <directionalLight position={[6, 8, 10]} intensity={1.5} />
-      <directionalLight position={[-5, -3, -9]} intensity={0.8} />
-      <Paper front={front} back={back} wMm={wMm} hMm={hMm} />
-      <Rig autoRotate={autoRotate} command={command} wMm={wMm} hMm={hMm} onFacing={onFacing} />
-    </Canvas>
+    <div className="preview3dWrap">
+      <Canvas
+        camera={{ position: [3.2, 2.2, 12.5], fov: 40 }}
+        style={{ width: '100%', height: '100%' }}
+        gl={{ antialias: true, preserveDrawingBuffer: true }}
+      >
+        <color attach="background" args={[stageColor]} />
+        <ambientLight intensity={1.15} />
+        <directionalLight position={[6, 8, 10]} intensity={1.5} />
+        <directionalLight position={[-5, -3, -9]} intensity={0.8} />
+        <Paper front={front} back={back} wMm={wMm} hMm={hMm} />
+        <Rig autoRotate={autoRotate} command={command} wMm={wMm} hMm={hMm}
+          onFacing={onFacing} onZoomPct={setPct} apiRef={api} />
+      </Canvas>
+      <div className="zoomCtl" onPointerDown={(e) => e.stopPropagation()}>
+        <button title="Zoom out" onClick={() => api.current?.zoomOut()}>−</button>
+        <span className="zoomPct">{pct}%</span>
+        <button title="Zoom in" onClick={() => api.current?.zoomIn()}>＋</button>
+        <button title="Reset view" onClick={() => api.current?.reset()}>Fit</button>
+      </div>
+    </div>
   );
 }

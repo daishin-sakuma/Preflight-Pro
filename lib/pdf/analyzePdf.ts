@@ -109,8 +109,11 @@ export async function analyzePdf(
     pages.push(geom);
 
     // ---- render preview ----
+    // Target ~2200px on the long edge regardless of page size, so small pages
+    // (business cards etc.) render at high scale and stay sharp when the
+    // preview stage displays them large / zoomed. Cap at 10x for tiny pages.
     const longEdge = Math.max(geom.widthPt, geom.heightPt);
-    const scale = Math.min(3, Math.max(0.6, 1500 / longEdge));
+    const scale = Math.min(10, Math.max(0.5, 2200 / longEdge));
     renderScale = scale;
     const viewport = page.getViewport({ scale });
     const canvas = document.createElement('canvas');

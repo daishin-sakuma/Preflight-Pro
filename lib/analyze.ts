@@ -73,7 +73,7 @@ export async function analyzeFile(
 
   // decode for preview + pixel TAC
   const bitmap = await createImageBitmap(new Blob([buf.buffer as ArrayBuffer]));
-  const maxEdge = 1600;
+  const maxEdge = 2400;
   const sc = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(bitmap.width * sc);

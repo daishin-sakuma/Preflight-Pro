@@ -93,6 +93,27 @@ export default function Home() {
   const [autoRotate, setAutoRotate] = useState(false);
   const [command, setCommand] = useState<ViewCommand>({ cmd: 'reset', n: 0 });
 
+  // Page turning (works in both 2D and 3D; also bound to ← / → keys).
+  const goPage = useCallback((delta: number) => {
+    setResult((r) => {
+      if (r) setPageIdx((i) => Math.max(0, Math.min(r.pageCount - 1, i + delta)));
+      return r;
+    });
+  }, []);
+
+  // ← / → keys turn pages while viewing results (ignored while typing in a field).
+  useEffect(() => {
+    if (phase !== 'result') return;
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName)) return;
+      if (e.key === 'ArrowLeft') { e.preventDefault(); goPage(-1); }
+      else if (e.key === 'ArrowRight') { e.preventDefault(); goPage(1); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [phase, goPage]);
+
   // Locate a finding's spots: jump to the 2D view (and its first page).
   const onLocate = useCallback((f: Finding) => {
     if (!f.markerKind) return;
@@ -510,15 +531,26 @@ export default function Home() {
                   markerKind={markerKind}
                 />
               )}
-            </div>
-            <div className="previewCtrl">
               {result.pageCount > 1 && (
                 <>
-                  <select value={pageIdx} onChange={(e) => setPageIdx(+e.target.value)}>
+                  <button className="pageNav left" disabled={pageIdx === 0}
+                    onClick={() => goPage(-1)} title="Previous page (←)" aria-label="Previous page">‹</button>
+                  <button className="pageNav right" disabled={pageIdx === result.pageCount - 1}
+                    onClick={() => goPage(1)} title="Next page (→)" aria-label="Next page">›</button>
+                  <div className="pageBadge">
+                    {result.pageCount === 2
+                      ? (pageIdx === 0 ? 'Front' : 'Back')
+                      : `Page ${pageIdx + 1} / ${result.pageCount}`}
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="previewCtrl">
+              {result.pageCount > 2 && (
+                <>
+                  <select value={pageIdx} onChange={(e) => setPageIdx(+e.target.value)} title="Jump to page">
                     {result.previews.map((_, i) => (
-                      <option key={i} value={i}>
-                        {result.pageCount === 2 ? (i === 0 ? 'Front' : 'Back') : `Page ${i + 1}`}
-                      </option>
+                      <option key={i} value={i}>{`Page ${i + 1}`}</option>
                     ))}
                   </select>
                   <span className="sep" />

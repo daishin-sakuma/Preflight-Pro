@@ -1,10 +1,11 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import type { AnalysisResult, Finding, MarkerKind, Settings } from '@/lib/types';
 import { DEFAULT_SETTINGS, MM_PER_PT } from '@/lib/types';
-import { paperSizeMm } from '@/lib/presets';
+import { PAPER_PRESETS, paperSizeMm } from '@/lib/presets';
+import type { SizeEstimate } from '@/lib/estimateSize';
 import ResultsPanel, { worstSeverity } from '@/components/ResultsPanel';
 import Preview2D, { MARKER_STYLE } from '@/components/Preview2D';
 import SettingsForm from '@/components/SettingsForm';
@@ -18,6 +19,9 @@ type Phase = 'upload' | 'confirm' | 'analyzing' | 'result' | 'error';
 const FORMAT_LABELS: Record<string, string> = {
   pdf: 'PDF', ai: 'Illustrator (PDF互換)', jpg: 'JPEG', jpeg: 'JPEG', png: 'PNG',
 };
+
+// Check settings persist across sessions (incl. custom size).
+const SETTINGS_KEY = 'preflight-pro:settings:v1';
 
 // Crop a page preview to its trim box → the finished piece for the 3D view.
 function croppedToTrim(result: AnalysisResult, pageIdx: number): { canvas: HTMLCanvasElement; wMm: number; hMm: number } | null {
@@ -98,15 +102,58 @@ export default function Home() {
   }, []);
 
   // Selecting a file moves to the settings-confirmation step; the check only
-  // starts when the user explicitly presses チェックを開始.
+  // starts when the user explicitly presses チェックを開始. Size estimation
+  // (from TrimBox / image DPI) runs in the background for the confirm screen.
   const onFiles = useCallback((files: FileList | null) => {
     if (!files || !files[0]) return;
     fileRef.current = files[0];
     setPhase('confirm');
-  }, []);
+    setEstimate(null);
+    setEstimating(true);
+    const f = files[0];
+    void (async () => {
+      try {
+        const buf = new Uint8Array(await f.arrayBuffer());
+        const { estimateSizeFromBytes } = await import('@/lib/estimateSize');
+        setEstimate(estimateSizeFromBytes(buf, settings.bleedMm));
+      } catch {
+        setEstimate(null);
+      } finally {
+        setEstimating(false);
+      }
+    })();
+  }, [settings.bleedMm]);
 
   const set = <K extends keyof Settings>(k: K, v: Settings[K]) =>
     setSettings((s) => ({ ...s, [k]: v }));
+
+  // ---- settings persistence (localStorage) ----
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(SETTINGS_KEY);
+      if (stored) setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(stored) });
+    } catch { /* corrupted storage — keep defaults */ }
+  }, []);
+  useEffect(() => {
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* quota */ }
+  }, [settings]);
+
+  // ---- size estimation state ----
+  const [estimate, setEstimate] = useState<SizeEstimate | null>(null);
+  const [estimating, setEstimating] = useState(false);
+
+  const estimateMatchesSettings = useMemo(() => {
+    if (!estimate) return false;
+    const cur = paperSizeMm(settings.paperId, settings.customWmm, settings.customHmm, settings.landscape);
+    return Math.abs(cur.wMm - estimate.wMm) <= 0.6 && Math.abs(cur.hMm - estimate.hMm) <= 0.6;
+  }, [estimate, settings]);
+
+  const applyEstimate = useCallback(() => {
+    if (!estimate) return;
+    setSettings((s) => estimate.presetId
+      ? { ...s, paperId: estimate.presetId!, landscape: estimate.landscape }
+      : { ...s, paperId: 'custom', customWmm: estimate.wMm, customHmm: estimate.hMm, landscape: false });
+  }, [estimate]);
 
   const summary = useMemo(() => {
     if (!result) return null;
@@ -203,10 +250,38 @@ export default function Home() {
                     ファイルを選び直す
                   </button>
                 </div>
+                <div className="estimateBox">
+                  {estimating ? (
+                    <span className="estWait">データから仕上がりサイズを推定中…</span>
+                  ) : estimate ? (
+                    <>
+                      <div className="estHead">データからの推定仕上がりサイズ</div>
+                      <div className="estRow">
+                        <span className="estValue">
+                          {estimate.presetId
+                            ? `${PAPER_PRESETS.find((p) => p.id === estimate.presetId)?.label ?? ''}${estimate.landscape ? ' 横' : ''}`
+                            : `${estimate.wMm}×${estimate.hMm}mm (カスタム)`}
+                        </span>
+                        {estimateMatchesSettings ? (
+                          <span className="estOk">✓ 現在の設定と一致しています</span>
+                        ) : (
+                          <button className="btn small" onClick={applyEstimate}>
+                            この推定サイズを使用
+                          </button>
+                        )}
+                      </div>
+                      <div className="estSrc">{estimate.sourceLabel}</div>
+                    </>
+                  ) : (
+                    <span className="estNone">
+                      サイズを自動推定できませんでした (解像度情報の無い画像など)。右の設定で仕上がりサイズを指定してください。
+                    </span>
+                  )}
+                </div>
                 <div className="confirmHint">
                   右のチェック設定 (仕上がりサイズ・塗り足し・総インキ量の上限など) が
                   注文内容と合っているか確認してから、チェックを開始してください。
-                  設定は結果画面からも変更して再チェックできます。
+                  設定は次回のために自動保存され、結果画面からも変更して再チェックできます。
                 </div>
                 <div className="confirmActions">
                   <button className="btn big" onClick={() => fileRef.current && runAnalysis(fileRef.current, settings)}>

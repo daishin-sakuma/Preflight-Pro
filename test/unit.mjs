@@ -155,6 +155,29 @@ function geomFromBoxes(raw, wPt, hPt) {
   expect(ids['img-rgb'] === 'warning', 'checks: RGB画像=注意');
 }
 
+// ---------------- size estimation ----------------
+{
+  const { estimateSizeFromBytes } = await import('../lib/estimateSize.ts');
+
+  const eGood = estimateSizeFromBytes(fx('good.pdf'), 3);
+  expect(eGood?.presetId === 'a4' && !eGood.landscape,
+    `estimate: good.pdf → A4縦 (TrimBoxから) (got ${JSON.stringify(eGood)})`);
+  expect(!!eGood?.sourceLabel.includes('TrimBox'), 'estimate: good.pdf 由来=TrimBox');
+
+  const eBad = estimateSizeFromBytes(fx('bad.pdf'), 3);
+  expect(eBad?.presetId === 'a4',
+    `estimate: bad.pdf → A4 (原寸ページから) (got ${JSON.stringify(eBad)})`);
+  expect(!!eBad?.sourceLabel.includes('塗り足しが無い'), 'estimate: bad.pdf 塗り足しなし注記');
+
+  const eAi = estimateSizeFromBytes(fx('ai-style.pdf'), 3);
+  expect(eAi?.presetId === 'a4', `estimate: ai-style.pdf → A4 (got ${JSON.stringify(eAi)})`);
+
+  const ePng = estimateSizeFromBytes(fx('small.png'), 3);
+  expect(ePng !== null && ePng.presetId === null &&
+    Math.abs(ePng.wMm - 42.3) < 0.2 && Math.abs(ePng.hMm - 42.3) < 0.2,
+    `estimate: small.png → 42.3mm カスタム (72dpiから) (got ${JSON.stringify(ePng)})`);
+}
+
 // ---------------- jpeg marker parser (tiny inline CMYK-less jpeg) ----------
 {
   // minimal JFIF header JPEG (SOI, APP0 JFIF 300dpi, SOF0 3comp 10x10, EOI)

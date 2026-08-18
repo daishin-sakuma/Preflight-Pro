@@ -36,30 +36,31 @@ export default function ResultsPanel({ findings, onLocate, activeMarkerKind, max
     return o;
   });
 
-  // Gemini-style soft fade at the top/bottom edges — only when there is more to
-  // scroll in that direction, so content dissolves into the background.
+  // Gemini-style soft fade at the top/bottom edges. Opacity is proportional to
+  // how far you've scrolled from that edge (ramps 0→1 over RAMP px), so a slow
+  // scroll reveals it gradually; a 0.3s transition (in CSS) smooths the change.
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [fade, setFade] = useState({ top: false, bottom: false });
+  const topFadeRef = useRef<HTMLDivElement>(null);
+  const botFadeRef = useRef<HTMLDivElement>(null);
   const recompute = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const top = el.scrollTop > 1;
-    const bottom = el.scrollTop + el.clientHeight < el.scrollHeight - 1;
-    setFade((f) => (f.top === top && f.bottom === bottom ? f : { top, bottom }));
+    const RAMP = 16;
+    const top = Math.min(1, Math.max(0, el.scrollTop / RAMP));
+    const bottom = Math.min(1, Math.max(0, (el.scrollHeight - el.clientHeight - el.scrollTop) / RAMP));
+    if (topFadeRef.current) topFadeRef.current.style.opacity = String(top);
+    if (botFadeRef.current) botFadeRef.current.style.opacity = String(bottom);
   }, []);
   useEffect(() => { recompute(); }, [recompute, maxHeight, findings, open]);
 
-  const F = '32px';
-  const maskImage = `linear-gradient(to bottom, ${fade.top ? 'transparent' : '#000'} 0,` +
-    ` #000 ${F}, #000 calc(100% - ${F}), ${fade.bottom ? 'transparent' : '#000'} 100%)`;
-
   return (
     <div className="resultsCol">
+      <div className="resultsFade top" ref={topFadeRef} aria-hidden="true" />
       <div
         className="resultsScroll"
         ref={scrollRef}
         onScroll={recompute}
-        style={{ ...(maxHeight ? { maxHeight } : {}), maskImage, WebkitMaskImage: maskImage }}
+        style={maxHeight ? { maxHeight } : undefined}
       >
       {cats.map(({ cat, items }, i) => {
         const worst = worstSeverity(items);
@@ -103,6 +104,7 @@ export default function ResultsPanel({ findings, onLocate, activeMarkerKind, max
         );
       })}
       </div>
+      <div className="resultsFade bottom" ref={botFadeRef} aria-hidden="true" />
     </div>
   );
 }

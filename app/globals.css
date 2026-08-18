@@ -703,7 +703,14 @@ input[type="number"] { width: 76px; min-width: 0; }
 .legend .swatch { width: 14px; height: 10px; border-radius: 2px; display: inline-block; }
 
 /* ---------- properties panel (checks) ---------- */
-.resultsCol { display: flex; flex-direction: column; min-width: 0; }
+.resultsCol { display: flex; flex-direction: column; min-width: 0; position: relative; }
+/* soft edge fades (opacity driven by scroll position, eased over --dur) */
+.resultsFade {
+  position: absolute; left: 0; right: 0; height: 22px; z-index: 2;
+  pointer-events: none; opacity: 0; transition: opacity var(--dur) ease;
+}
+.resultsFade.top { top: 0; background: linear-gradient(to bottom, var(--ground), transparent); }
+.resultsFade.bottom { bottom: 0; background: linear-gradient(to top, var(--ground), transparent); }
 /* height is capped (to the preview column) via inline maxHeight from JS on
    desktop, so the panel scrolls on its own; on mobile it flows normally. */
 .resultsScroll {

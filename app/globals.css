@@ -186,11 +186,12 @@ button { font-family: inherit; cursor: pointer; }
   margin-left: auto;
   display: inline-flex; align-items: center; gap: var(--space-4);
   justify-content: flex-start;
-  width: 92px;                 /* stable width so toggling doesn't resize/shift */
 }
 .themeIcon { display: inline-flex; width: 16px; height: 16px; flex: 0 0 16px; }
 .themeIcon svg { width: 16px; height: 16px; display: block; }
-.themeLabel { line-height: 1; }
+/* reserve the wider label's width so toggling never resizes the button,
+   but without the leftover right-side gap of a fixed button width */
+.themeLabel { line-height: 1; min-width: 32px; text-align: left; }
 
 
 /* ---------- panels (cards) ---------- */

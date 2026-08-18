@@ -530,7 +530,7 @@ export default function Home() {
                 <span className="note">Wheel to zoom (cursor-centered) / drag to pan</span>
               )}
             </div>
-            {showGuides && (
+            {(
               <div className="legend">
                 <span className="key"><span className="swatch" style={{ background: 'rgba(40,110,240,.35)' }} />Bleed (trim-off) area</span>
                 <span className="key"><span className="swatch" style={{ border: '2px dashed #e11d48', background: 'transparent' }} />Trim line (cut position)</span>

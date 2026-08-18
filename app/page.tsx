@@ -444,7 +444,7 @@ export default function Home() {
                       </div>
                       {detected && !detectedMatchesSettings && (
                         <div className="estApply">
-                          <button className="btn small" onClick={applyDetected}>Use detected settings</button>
+                          <button className="btn ghost small" onClick={applyDetected}>Use detected settings</button>
                           <span className="pcSub">
                             Applies{' '}
                             {[

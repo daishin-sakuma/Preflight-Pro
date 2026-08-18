@@ -243,6 +243,22 @@ export default function Home() {
     }
   }, []);
 
+  // On the confirm screen, Enter runs the check — but not while a value field
+  // (size / bleed / ink / dpi / dropdown) is focused, so confirming an input
+  // with Enter doesn't accidentally start the check.
+  useEffect(() => {
+    if (phase !== 'confirm') return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter' || e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName)) return;
+      e.preventDefault();
+      if (fileRef.current) runAnalysis(fileRef.current, settings);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [phase, runAnalysis, settings]);
+
   // Selecting a file moves to the settings-confirmation step; the check only
   // starts when the user explicitly presses Start check. Size estimation
   // (from TrimBox / image DPI) runs in the background for the confirm screen.

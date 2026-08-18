@@ -148,6 +148,8 @@ function Rig({ autoRotate, command, wMm, hMm, onFacing, onZoomPct, apiRef }: {
       autoRotateSpeed={2.2}
       enablePan
       zoomToCursor
+      enableDamping
+      dampingFactor={0.22}   /* lighter inertia (drei default 0.05 feels too floaty) */
       minDistance={4}
       maxDistance={80}
     />

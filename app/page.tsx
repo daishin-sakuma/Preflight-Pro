@@ -537,9 +537,15 @@ export default function Home() {
               {result.pageCount > 1 && (
                 <>
                   <button className="pageNav left" disabled={pageIdx === 0}
-                    onClick={() => goPage(-1)} title="Previous page (←)" aria-label="Previous page">‹</button>
+                    onClick={() => goPage(-1)} title="Previous page (←)" aria-label="Previous page">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25"
+                      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
+                  </button>
                   <button className="pageNav right" disabled={pageIdx === result.pageCount - 1}
-                    onClick={() => goPage(1)} title="Next page (→)" aria-label="Next page">›</button>
+                    onClick={() => goPage(1)} title="Next page (→)" aria-label="Next page">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25"
+                      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+                  </button>
                   <div className="pageBadge">
                     {result.pageCount === 2
                       ? (pageIdx === 0 ? 'Front' : 'Back')

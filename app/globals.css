@@ -369,34 +369,47 @@ input[type="number"] { width: 76px; min-width: 0; }
   box-shadow: var(--shadow-doc);
   background: #fff;
 }
-/* page-turn overlay controls */
+/* page-turn overlay controls (shadcn / Adobe icon-button tone) */
 .pageNav {
   position: absolute; top: 50%; transform: translateY(-50%);
   z-index: 6;
-  width: 42px; height: 42px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 26px; line-height: 1; padding-bottom: 3px;
-  color: var(--text);
-  background: color-mix(in srgb, var(--panel) 78%, transparent);
+  width: 36px; height: 36px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--panel) 86%, transparent);
   border: 1px solid var(--border-strong);
-  backdrop-filter: blur(6px);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.16), 0 4px 12px rgba(0, 0, 0, 0.10);
+  backdrop-filter: blur(8px);
   cursor: pointer; user-select: none;
-  transition: background .15s, opacity .15s, transform .1s;
+  transition: background .15s ease, color .15s ease, border-color .15s ease,
+    box-shadow .15s ease, transform .08s ease, opacity .15s ease;
 }
-.pageNav:hover:not(:disabled) { background: var(--panel); }
+.pageNav:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--panel);
+  border-color: var(--subtle);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.20), 0 6px 16px rgba(0, 0, 0, 0.14);
+}
 .pageNav:active:not(:disabled) { transform: translateY(-50%) scale(0.94); }
-.pageNav:disabled { opacity: .25; cursor: default; }
+.pageNav:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pageNav:disabled { opacity: .38; cursor: default; }
+.pageNav svg { width: 18px; height: 18px; display: block; }
+/* optical (not mathematical) centering: nudge each chevron toward its point */
 .pageNav.left { left: 14px; }
+.pageNav.left svg { transform: translateX(-1px); }
 .pageNav.right { right: 14px; }
+.pageNav.right svg { transform: translateX(1px); }
 .pageBadge {
   position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
   z-index: 6;
-  padding: 4px 13px; border-radius: 999px;
-  font-size: 12px; font-weight: 600; letter-spacing: 0.01em;
+  padding: 5px 13px; border-radius: 999px;
+  font-size: 11.5px; font-weight: 600; letter-spacing: 0.01em;
   color: var(--text);
-  background: color-mix(in srgb, var(--panel) 78%, transparent);
+  background: color-mix(in srgb, var(--panel) 86%, transparent);
   border: 1px solid var(--border-strong);
-  backdrop-filter: blur(6px);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.16), 0 4px 12px rgba(0, 0, 0, 0.10);
+  backdrop-filter: blur(8px);
   user-select: none;
 }
 .stage2d { position: relative; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }

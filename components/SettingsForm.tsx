@@ -11,6 +11,7 @@ interface Props {
 }
 
 export default function SettingsForm({ settings, onChange: set }: Props) {
+  const isCustomTac = !TAC_CHOICES.includes(settings.tacLimit);
   const isCustomDpi = !DPI_CHOICES.includes(settings.minDpi);
   return (
     <>
@@ -47,10 +48,23 @@ export default function SettingsForm({ settings, onChange: set }: Props) {
       </div>
       <div className="formRow">
         <label>Total ink limit<span className="hint">Coated ~300% / uncoated ~250%</span></label>
-        <select value={settings.tacLimit} onChange={(e) => set('tacLimit', +e.target.value)}>
+        <select
+          value={isCustomTac ? 'custom' : String(settings.tacLimit)}
+          onChange={(e) => set('tacLimit', e.target.value === 'custom' ? 290 : +e.target.value)}>
           {TAC_CHOICES.map((v) => <option key={v} value={v}>{v}%</option>)}
+          <option value="custom">Custom…</option>
         </select>
       </div>
+      {isCustomTac && (
+        <div className="formRow">
+          <label>Custom ink limit (%)</label>
+          <span className="inline">
+            <input type="number" value={settings.tacLimit} min={1} max={400} step={1}
+              onChange={(e) => set('tacLimit', +e.target.value)} />
+            %
+          </span>
+        </div>
+      )}
       <div className="formRow">
         <label>Required resolution<span className="hint">Color/gray: 300–350dpi</span></label>
         <select

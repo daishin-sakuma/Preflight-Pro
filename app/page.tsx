@@ -225,7 +225,7 @@ export default function Home() {
     <>
       <header className="header">
         <div className="logo">
-          <span className="mark">Preflight <span className="pro">Pro</span></span>
+          <span className="mark">Preflight Pro</span>
           <span className="sub">入稿データチェック</span>
         </div>
         <button

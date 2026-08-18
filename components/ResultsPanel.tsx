@@ -36,6 +36,7 @@ export default function ResultsPanel({ findings, onLocate, activeMarkerKind }: P
 
   return (
     <div className="resultsCol">
+      <div className="resultsScroll">
       {cats.map(({ cat, items }, i) => {
         const worst = worstSeverity(items);
         const sorted = [...items].sort((a, b) => SEV_RANK[b.severity] - SEV_RANK[a.severity]);
@@ -77,6 +78,7 @@ export default function ResultsPanel({ findings, onLocate, activeMarkerKind }: P
           </div>
         );
       })}
+      </div>
     </div>
   );
 }

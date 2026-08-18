@@ -444,9 +444,9 @@ input[type="number"] { width: 76px; min-width: 0; }
      as the header→first-card gap — bottom margins collapse through <body>. */
   padding: 0 var(--space-8) var(--space-7);
   display: grid; grid-template-columns: minmax(0, 1fr) 336px; gap: var(--space-6);
-  align-items: start;
+  align-items: stretch;
 }
-@media (max-width: 1000px) { .resultWrap { grid-template-columns: 1fr; } }
+@media (max-width: 1000px) { .resultWrap { grid-template-columns: 1fr; align-items: start; } }
 
 /* control bar (like CC options bar) */
 .fileBar {
@@ -693,7 +693,18 @@ input[type="number"] { width: 76px; min-width: 0; }
 .legend .swatch { width: 14px; height: 10px; border-radius: 2px; display: inline-block; }
 
 /* ---------- properties panel (checks) ---------- */
-.resultsCol { display: flex; flex-direction: column; gap: var(--space-4); }
+.resultsCol { display: flex; flex-direction: column; min-width: 0; }
+.resultsScroll { display: flex; flex-direction: column; gap: var(--space-4); }
+/* on desktop, the results panel matches the preview column height and scrolls
+   on its own (its content is taken out of row sizing via absolute positioning,
+   so the row height is set by the left/preview column). */
+@media (min-width: 1001px) {
+  .resultsCol { position: relative; }
+  .resultsScroll {
+    position: absolute; inset: 0; overflow-y: auto;
+    padding-right: var(--space-2);
+  }
+}
 .catCard {
   background: var(--panel);
   border: 1px solid var(--border);

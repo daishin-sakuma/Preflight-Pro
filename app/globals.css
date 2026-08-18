@@ -120,7 +120,15 @@ button { font-family: inherit; cursor: pointer; }
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15);
 }
 .logo .mark { font-size: 14.5px; font-weight: 700; letter-spacing: 0.2px; color: var(--text); }
-.themeToggle { margin-left: auto; }
+.themeToggle {
+  margin-left: auto;
+  display: inline-flex; align-items: center; gap: 8px;
+  justify-content: flex-start;
+  width: 92px;                 /* stable width so toggling doesn't resize/shift */
+}
+.themeIcon { display: inline-flex; width: 16px; height: 16px; flex: 0 0 16px; }
+.themeIcon svg { width: 16px; height: 16px; display: block; }
+.themeLabel { line-height: 1; }
 
 
 /* ---------- panels (cards) ---------- */

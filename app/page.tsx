@@ -97,6 +97,17 @@ export default function Home() {
   const [command, setCommand] = useState<ViewCommand>({ cmd: 'reset', n: 0 });
   const [facing3d, setFacing3d] = useState<'front' | 'back'>('front'); // which face the 3D camera sees
 
+  // Return to the top (upload) page — used by the header logo.
+  const goHome = useCallback(() => {
+    disposeRef.current?.();
+    disposeRef.current = null;
+    fileRef.current = null;
+    setResult(null);
+    setPre(null);
+    setMarkerKind(null);
+    setPhase('upload');
+  }, []);
+
   // Page turning (works in both 2D and 3D; also bound to ← / → keys).
   const goPage = useCallback((delta: number) => {
     setResult((r) => {
@@ -306,9 +317,9 @@ export default function Home() {
   return (
     <>
       <header className="header">
-        <div className="logo">
+        <button className="logo" onClick={goHome} title="Back to top" aria-label="Back to top">
           <span className="mark">Preflight</span>
-        </div>
+        </button>
         <button
           className="themeToggle"
           onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
@@ -534,9 +545,6 @@ export default function Home() {
             <span className="right">
               <button className="btn ghost small" onClick={() => setPhase('confirm')}>
                 Change settings
-              </button>
-              <button className="btn small" onClick={() => { setResult(null); fileRef.current = null; setPhase('upload'); }}>
-                Check another file
               </button>
             </span>
           </div>

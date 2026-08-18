@@ -174,7 +174,11 @@ button { font-family: inherit; cursor: pointer; }
   top: 0;
   z-index: 10;
 }
-.logo { display: flex; align-items: center; gap: var(--space-4); }
+.logo {
+  display: flex; align-items: center; gap: var(--space-4);
+  background: none; border: none; padding: 0; cursor: pointer;
+}
+.logo:hover .mark { color: var(--accent-strong); }
 .logo::before {
   content: '';
   width: 17px; height: 17px; border-radius: var(--radius-sm);

@@ -7,7 +7,7 @@ import { DEFAULT_SETTINGS, MM_PER_PT } from '@/lib/types';
 import { PAPER_PRESETS, paperSizeMm } from '@/lib/presets';
 import type { PrecheckInfo } from '@/lib/estimateSize';
 import ResultsPanel, { worstSeverity } from '@/components/ResultsPanel';
-import Preview2D from '@/components/Preview2D';
+import Preview2D, { type Preview2DHandle } from '@/components/Preview2D';
 import { MARKER_STYLE, renderOverlays } from '@/lib/overlay';
 import SettingsForm from '@/components/SettingsForm';
 import type { ViewCommand } from '@/components/Preview3D';
@@ -83,6 +83,8 @@ export default function Home() {
   const fileRef = useRef<File | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const disposeRef = useRef<(() => void) | null>(null); // releases the previous PDF's retained doc
+  const preview2dRef = useRef<Preview2DHandle>(null);
+  const [showShortcuts, setShowShortcuts] = useState(false);
 
   // preview state
   const [tab, setTab] = useState<'3d' | '2d'>('3d');
@@ -102,18 +104,46 @@ export default function Home() {
     });
   }, []);
 
-  // ← / → keys turn pages while viewing results (ignored while typing in a field).
+  // Keyboard shortcuts while viewing results (ignored while typing in a field
+  // or when a browser/OS modifier is held).
   useEffect(() => {
     if (phase !== 'result') return;
     const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
       const t = e.target as HTMLElement | null;
       if (t && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName)) return;
-      if (e.key === 'ArrowLeft') { e.preventDefault(); goPage(-1); }
-      else if (e.key === 'ArrowRight') { e.preventDefault(); goPage(1); }
+      switch (e.key) {
+        // page turning
+        case 'ArrowLeft': e.preventDefault(); goPage(-1); break;
+        case 'ArrowRight': e.preventDefault(); goPage(1); break;
+        // view switching
+        case '2': setTab('2d'); break;
+        case '3': setTab('3d'); break;
+        // overlay toggles
+        case 'g': case 'G': setShowGuides((v) => !v); break;
+        case 'd': case 'D': setShowDims((v) => !v); break;
+        case 'i': case 'I': setShowTac((v) => !v); break;
+        // 3D view controls
+        case ' ': if (tab === '3d') { e.preventDefault(); setAutoRotate((v) => !v); } break;
+        case 'f': case 'F': if (tab === '3d') setCommand((c) => ({ cmd: 'front', n: c.n + 1 })); break;
+        case 'b': case 'B': if (tab === '3d') setCommand((c) => ({ cmd: 'back', n: c.n + 1 })); break;
+        case 'r': case 'R': if (tab === '3d') setCommand((c) => ({ cmd: 'reset', n: c.n + 1 })); break;
+        // 2D zoom controls
+        case '+': case '=': if (tab === '2d') { e.preventDefault(); preview2dRef.current?.zoomIn(); } break;
+        case '-': case '_': if (tab === '2d') { e.preventDefault(); preview2dRef.current?.zoomOut(); } break;
+        case '0': if (tab === '2d') preview2dRef.current?.fit(); break;
+        // help / dismiss
+        case '?': e.preventDefault(); setShowShortcuts((s) => !s); break;
+        case 'Escape':
+          if (showShortcuts) setShowShortcuts(false);
+          else setMarkerKind(null);
+          break;
+        default: break;
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [phase, goPage]);
+  }, [phase, tab, goPage, showShortcuts]);
 
   // Locate a finding's spots: jump to the 2D view (and its first page).
   const onLocate = useCallback((f: Finding) => {
@@ -525,6 +555,7 @@ export default function Home() {
               )}
               {tab === '2d' && (
                 <Preview2D
+                  ref={preview2dRef}
                   result={result}
                   settings={settings}
                   pageIdx={pageIdx}
@@ -587,6 +618,8 @@ export default function Home() {
                   ◎ Showing “{MARKER_STYLE[markerKind].label}” ✕
                 </button>
               )}
+              <button className="btn ghost small kbdBtn" title="Keyboard shortcuts (?)"
+                onClick={() => setShowShortcuts(true)}>⌨</button>
               {tab === '3d' ? (
                 <span className="note">
                   {paper3d && `${overlaysOn ? 'Data' : 'Trim'} ${Math.round(paper3d.wMm)}×${Math.round(paper3d.hMm)}mm · `}
@@ -628,6 +661,45 @@ export default function Home() {
             onLocate={onLocate}
             activeMarkerKind={markerKind}
           />
+        </div>
+      )}
+
+      {showShortcuts && (
+        <div className="shortcutsOverlay" onClick={() => setShowShortcuts(false)}>
+          <div className="shortcutsCard" onClick={(e) => e.stopPropagation()}>
+            <div className="scHead">
+              <span>Keyboard shortcuts</span>
+              <button className="btn ghost small" onClick={() => setShowShortcuts(false)}>✕</button>
+            </div>
+            <div className="scGrid">
+              <div className="scGroup">
+                <div className="scGroupTitle">Pages &amp; views</div>
+                <div className="scRow"><span><kbd>←</kbd><kbd>→</kbd></span> Previous / next page</div>
+                <div className="scRow"><span><kbd>2</kbd></span> 2D proof</div>
+                <div className="scRow"><span><kbd>3</kbd></span> 3D preview</div>
+              </div>
+              <div className="scGroup">
+                <div className="scGroupTitle">Overlays</div>
+                <div className="scRow"><span><kbd>G</kbd></span> Toggle guides</div>
+                <div className="scRow"><span><kbd>D</kbd></span> Toggle dimensions</div>
+                <div className="scRow"><span><kbd>I</kbd></span> Toggle ink overlay</div>
+                <div className="scRow"><span><kbd>Esc</kbd></span> Clear “locate” markers</div>
+              </div>
+              <div className="scGroup">
+                <div className="scGroupTitle">3D preview</div>
+                <div className="scRow"><span><kbd>Space</kbd></span> Start / stop spin</div>
+                <div className="scRow"><span><kbd>F</kbd></span> View front</div>
+                <div className="scRow"><span><kbd>B</kbd></span> View back</div>
+                <div className="scRow"><span><kbd>R</kbd></span> Reset view</div>
+              </div>
+              <div className="scGroup">
+                <div className="scGroupTitle">2D proof</div>
+                <div className="scRow"><span><kbd>+</kbd><kbd>−</kbd></span> Zoom in / out</div>
+                <div className="scRow"><span><kbd>0</kbd></span> Fit to view</div>
+                <div className="scRow"><span><kbd>?</kbd></span> Toggle this help</div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </>

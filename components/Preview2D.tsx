@@ -10,11 +10,17 @@
 // `finished` mode (all overlays off) crops to the trim box so the 2D view shows
 // the trimmed finished piece — matching the 3D preview's behaviour.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import type { AnalysisResult, MarkerKind, PageGeom, Settings } from '@/lib/types';
 import { renderOverlays, MARKER_STYLE } from '@/lib/overlay';
 
 export { MARKER_STYLE };
+
+export interface Preview2DHandle {
+  zoomIn(): void;
+  zoomOut(): void;
+  fit(): void;
+}
 
 interface Props {
   result: AnalysisResult;
@@ -46,7 +52,9 @@ function cropToTrim(src: HTMLCanvasElement, geom: PageGeom, scale: number): HTML
   return out;
 }
 
-export default function Preview2D({ result, settings, pageIdx, showTac, showGuides, showDims, markerKind, finished }: Props) {
+const Preview2D = forwardRef<Preview2DHandle, Props>(function Preview2D(
+  { result, settings, pageIdx, showTac, showGuides, showDims, markerKind, finished }, ref,
+) {
   const baseRef = useRef<HTMLCanvasElement>(null);
   const overRef = useRef<HTMLCanvasElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -150,6 +158,13 @@ export default function Preview2D({ result, settings, pageIdx, showTac, showGuid
     scheduleHiRes(); // drops back to the light base preview when appropriate
   }, [fit, scheduleHiRes]);
 
+  // imperative zoom controls for keyboard shortcuts driven from the page
+  useImperativeHandle(ref, () => ({
+    zoomIn: () => zoomButtons(1.3),
+    zoomOut: () => zoomButtons(1 / 1.3),
+    fit: () => fitAndRevert(),
+  }), [zoomButtons, fitAndRevert]);
+
   // wheel: native non-passive listener (React's onWheel can't preventDefault)
   useEffect(() => {
     const vp = viewportRef.current;
@@ -252,4 +267,6 @@ export default function Preview2D({ result, settings, pageIdx, showTac, showGuid
       </div>
     </div>
   );
-}
+});
+
+export default Preview2D;

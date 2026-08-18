@@ -1,0 +1,10 @@
+node_modules/
+.next/
+out/
+public/pdf.worker.min.mjs
+test/fixtures/
+test/out-*.png
+*.log
+.DS_Store
+.vercel
+next-env.d.ts

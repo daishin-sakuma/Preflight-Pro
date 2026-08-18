@@ -61,19 +61,47 @@ function Paper({ front, back, wMm, hMm }: Pick<Props, 'front' | 'back' | 'wMm' |
   );
 }
 
-function Rig({ autoRotate, command }: { autoRotate: boolean; command: ViewCommand }) {
-  const { camera } = useThree();
+// viewing direction for the default (three-quarter) view
+const VIEW_DIR = new THREE.Vector3(3.2, 2.2, 12.5).normalize();
+
+function Rig({ autoRotate, command, wMm, hMm }: {
+  autoRotate: boolean; command: ViewCommand; wMm: number; hMm: number;
+}) {
+  const { camera, size } = useThree();
   const controls = useRef<OrbitControlsImpl>(null);
 
-  useEffect(() => {
-    const dist = Math.max(6, camera.position.length());
-    if (command.cmd === 'front') camera.position.set(0, 0, dist);
-    else if (command.cmd === 'back') camera.position.set(0, 0, -dist);
-    else camera.position.set(3.2, 2.2, 12.5);
+  // scene units of the sheet (mirrors <Paper/>: long edge = 10 units)
+  const long = Math.max(wMm, hMm);
+  const wUnits = (wMm / long) * 10;
+  const hUnits = (hMm / long) * 10;
+
+  // distance at which the whole sheet fits the frustum (both axes) with margin
+  const fitDist = useMemo(() => {
+    const cam = camera as THREE.PerspectiveCamera;
+    const vfov = (cam.fov * Math.PI) / 180;
+    const aspect = size.width / Math.max(1, size.height);
+    const margin = 1.22; // padding + allowance for the tilted (3/4) view
+    const fitH = (hUnits * margin) / 2 / Math.tan(vfov / 2);
+    const fitW = (wUnits * margin) / 2 / (Math.tan(vfov / 2) * aspect);
+    return Math.max(fitH, fitW, 6);
+  }, [wUnits, hUnits, camera, size]);
+
+  const place = (cmd: ViewCommand['cmd']) => {
+    if (cmd === 'front') camera.position.set(0, 0, fitDist);
+    else if (cmd === 'back') camera.position.set(0, 0, -fitDist);
+    else camera.position.copy(VIEW_DIR).multiplyScalar(fitDist);
     camera.lookAt(0, 0, 0);
     controls.current?.update();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  };
+
+  // explicit front/back/reset commands
+  useEffect(() => { place(command.cmd); // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [command]);
+
+  // default framing: fit the whole piece on mount and whenever the sheet or
+  // viewport changes size (so nothing is ever clipped by default)
+  useEffect(() => { place('reset'); // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fitDist]);
 
   return (
     <OrbitControls
@@ -83,7 +111,7 @@ function Rig({ autoRotate, command }: { autoRotate: boolean; command: ViewComman
       enablePan
       zoomToCursor
       minDistance={4}
-      maxDistance={40}
+      maxDistance={80}
     />
   );
 }
@@ -100,7 +128,7 @@ export default function Preview3D({ front, back, wMm, hMm, autoRotate, command, 
       <directionalLight position={[6, 8, 10]} intensity={1.5} />
       <directionalLight position={[-5, -3, -9]} intensity={0.8} />
       <Paper front={front} back={back} wMm={wMm} hMm={hMm} />
-      <Rig autoRotate={autoRotate} command={command} />
+      <Rig autoRotate={autoRotate} command={command} wMm={wMm} hMm={hMm} />
     </Canvas>
   );
 }

@@ -54,6 +54,37 @@ export async function analyzeFile(
             rectPt: c.rectPt!,
             label: `${Math.round(c.tac)}%`,
           })),
+        // 4-color solid fills (C100 M100 Y100 K100 / registration-like)
+        ...r.content.cmykFills
+          .filter((c) => c.rectPt && c.c >= 0.99 && c.m >= 0.99 && c.y >= 0.99 && c.k >= 0.99)
+          .map((c) => ({
+            kind: 'four-color' as const,
+            page: c.page || 1,
+            rectPt: c.rectPt!,
+            label: '4C solid',
+          })),
+        // dense 3-color fills (90%+ in all of C, M, Y, still within the TAC limit)
+        ...r.content.cmykFills
+          .filter((c) =>
+            c.rectPt && c.tac <= settings.tacLimit &&
+            [c.c, c.m, c.y].filter((v) => v >= 0.9).length >= 3)
+          .map((c) => ({
+            kind: 'three-color' as const,
+            page: c.page || 1,
+            rectPt: c.rectPt!,
+            label: '3C',
+          })),
+        // low-resolution placed images (min-dpi is a setting, so resolved here)
+        ...r.images
+          .filter((im) =>
+            im.rectPt && im.effectiveDpi < settings.minDpi &&
+            im.printWidthMm > 5 && im.printHeightMm > 5)
+          .map((im) => ({
+            kind: 'lowres' as const,
+            page: im.page || 1,
+            rectPt: im.rectPt!,
+            label: `${im.effectiveDpi}dpi`,
+          })),
       ],
     };
     if (name.endsWith('.ai')) {

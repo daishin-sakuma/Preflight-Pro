@@ -15,6 +15,10 @@ export const MARKER_STYLE: Record<MarkerKind, { color: string; label: string }> 
   hairline: { color: '#38bdf8', label: 'Hairline' },
   font: { color: '#ff6161', label: 'Unembedded font' },
   overprint: { color: '#2dd4bf', label: 'Overprint' },
+  lowres: { color: '#dc2626', label: 'Low-resolution image' },
+  'four-color': { color: '#84cc16', label: '4-color solid' },
+  'three-color': { color: '#f59e0b', label: 'Dense 3-color' },
+  spot: { color: '#22d3ee', label: 'Spot color' },
 };
 
 export interface OverlayArgs {

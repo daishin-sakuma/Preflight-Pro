@@ -14,7 +14,9 @@ export interface Finding {
 }
 
 // A locatable problem spot on a page (PDF coords, origin bottom-left, pt).
-export type MarkerKind = 'rgb' | 'white-op' | 'tac' | 'rich-black' | 'hairline' | 'font' | 'overprint';
+export type MarkerKind =
+  | 'rgb' | 'white-op' | 'tac' | 'rich-black' | 'hairline' | 'font' | 'overprint'
+  | 'lowres' | 'four-color' | 'three-color' | 'spot';
 
 export interface Marker {
   kind: MarkerKind;

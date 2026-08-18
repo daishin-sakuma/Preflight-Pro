@@ -147,7 +147,7 @@ export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
     if (a.scan.separationNames.length > 0) {
       out.push(f('spot', 'color', 'warning', 'Spot colors used',
         `Spot colors “${a.scan.separationNames.slice(0, 6).join('”, “')}” are defined. Standard 4-color (CMYK) printing can't use spot colors — convert them to process colors (fine if you ordered spot-color printing).`,
-        { count: a.scan.separationNames.length }));
+        { count: a.scan.separationNames.length, markerKind: mk('spot'), pages: mkPages('spot').length ? mkPages('spot') : undefined }));
     }
 
     if (a.scan.pdfxVersion) {
@@ -190,7 +190,8 @@ export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
 
     if (reg4.length > 0 || a.scan.usesRegistrationAll) {
       out.push(f('4c-black', 'ink', 'error', '4-color solid (C100 M100 Y100 K100)',
-        `A 4-color solid${a.scan.usesRegistrationAll ? ' / registration color (a special color for crop marks)' : ''} is used. The ink won't dry, causing set-off and blocking. Change black to K100% or a proper rich black (e.g. C40 M30 Y30 K100).`));
+        `A 4-color solid${a.scan.usesRegistrationAll ? ' / registration color (a special color for crop marks)' : ''} is used. The ink won't dry, causing set-off and blocking. Change black to K100% or a proper rich black (e.g. C40 M30 Y30 K100).`,
+        { markerKind: mk('four-color'), pages: mkPages('four-color').length ? mkPages('four-color') : undefined }));
     }
     if (over.length > 0) {
       const worst = over.reduce((x, y) => (x.tac > y.tac ? x : y));
@@ -204,7 +205,7 @@ export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
     if (heavy3.length > 0) {
       out.push(f('3c-heavy', 'ink', 'warning', 'Dense 3-color solid',
         `${heavy3.length} color(s) use 90%+ in all of C, M and Y. This risks misregistration and poor drying — design using the K plate instead.`,
-        { count: heavy3.length }));
+        { count: heavy3.length, markerKind: mk('three-color'), pages: mkPages('three-color').length ? mkPages('three-color') : undefined }));
     }
     if (a.content.richBlackText.length > 0) {
       out.push(f('rich-black-text', 'ink', 'warning', 'Rich black used on text',
@@ -265,7 +266,7 @@ export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
         out.push(f('dpi', 'resolution', veryLow.length > 0 ? 'error' : 'warning',
           `${low.length} low-resolution placed image(s)`,
           `Some images are below ${s.minDpi}dpi effective (lowest ${worst.effectiveDpi}dpi, placed at ${fmt(worst.printWidthMm, 0)}×${fmt(worst.printHeightMm, 0)}mm). They will print coarse. Replace with images ≥ ${s.minDpi}dpi at size, or shrink the placement.`,
-          { count: low.length, pages: [...new Set(low.map((i) => i.page))] }));
+          { count: low.length, markerKind: mk('lowres'), pages: mkPages('lowres').length ? mkPages('lowres') : [...new Set(low.map((i) => i.page))] }));
       }
     } else {
       out.push(f('dpi', 'resolution', 'info', 'No placed images',

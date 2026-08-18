@@ -98,6 +98,7 @@ interface GState {
   gsActive: boolean;
   overprintOn: boolean;   // resolved from gsNames when available
   lineWidth: number;
+  isSep: boolean;         // current fill colorspace is a Separation (spot color)
 }
 
 export type ContentStreamInput = string | { text: string; page: number };
@@ -160,7 +161,7 @@ export function interpretContent(
     const src = typeof input === 'string' ? input : input.text;
     const page = typeof input === 'string' ? 1 : Math.max(1, input.page);
 
-    const st: GState = { ctm: IDENT, space: 'other', color: [], gsActive: false, overprintOn: false, lineWidth: 1 };
+    const st: GState = { ctm: IDENT, space: 'other', color: [], gsActive: false, overprintOn: false, lineWidth: 1, isSep: false };
     const stack: GState[] = [];
     let inText = false;
     let tx = 0, ty = 0, fontSize = 12;
@@ -201,6 +202,7 @@ export function interpretContent(
 
     const onPaint = (fills: boolean, strokes: boolean) => {
       if (fills) {
+        if (st.isSep) addMarker('spot', page, path, 'Spot color');
         if (st.space === 'rgb' && !isWhite()) addMarker('rgb', page, path, 'RGB');
         if (isWhite() && overprintNow()) {
           whiteFillWithGs++;
@@ -284,28 +286,33 @@ export function interpretContent(
           case 'rg': case 'RG': {
             rgbOps++;
             st.space = 'rgb';
+            st.isSep = false;
             st.color = nums.slice(-3);
             break;
           }
           case 'g': case 'G': {
             grayOps++;
             st.space = 'gray';
+            st.isSep = false;
             st.color = nums.slice(-1);
             break;
           }
           case 'k': case 'K': {
             st.space = 'cmyk';
+            st.isSep = false;
             st.color = nums.slice(-4);
             if (st.color.length === 4) record(st.color, inText && op === 'k', op === 'k', page);
             break;
           }
           case 'cs': case 'CS': {
+            st.isSep = false;
             if (lastName === 'DeviceCMYK') st.space = 'cmyk';
             else if (lastName === 'DeviceRGB') st.space = 'rgb';
             else if (lastName === 'DeviceGray') st.space = 'gray';
             else if (lastName && csNames[lastName]) {
               const kk = csNames[lastName].kind;
               st.space = kk === 'cmyk' ? 'cmyk' : kk === 'rgb' ? 'rgb' : kk === 'gray' ? 'gray' : 'other';
+              st.isSep = kk === 'sep';
             } else st.space = 'other';
             break;
           }

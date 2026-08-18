@@ -207,9 +207,6 @@ export default function Home() {
     return croppedToTrim(result, other)?.canvas ?? null;
   }, [result, pageIdx, overlaysOn, overlayOpts, settings]);
 
-  const stepState =
-    phase === 'upload' ? 0 : phase === 'confirm' ? 1 : phase === 'analyzing' ? 2 : 3;
-
   return (
     <>
       <header className="header">
@@ -217,15 +214,6 @@ export default function Home() {
           <span className="mark">Preflight <span className="pro">Pro</span></span>
           <span className="sub">入稿データチェック</span>
         </div>
-        <nav className="steps">
-          <span className={`step ${stepState === 0 ? 'active' : 'done'}`}>アップロード</span>
-          <span className="arrow">›</span>
-          <span className={`step ${stepState === 1 ? 'active' : stepState > 1 ? 'done' : ''}`}>チェック設定</span>
-          <span className="arrow">›</span>
-          <span className={`step ${stepState === 2 ? 'active' : stepState > 2 ? 'done' : ''}`}>データチェック</span>
-          <span className="arrow">›</span>
-          <span className={`step ${stepState === 3 ? 'active' : ''}`}>チェック結果</span>
-        </nav>
       </header>
 
       {phase === 'upload' && (

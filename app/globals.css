@@ -233,7 +233,7 @@ button { font-family: inherit; cursor: pointer; }
 
 /* ---------- upload / confirm ---------- */
 .uploadWrap {
-  max-width: 1060px; margin: var(--space-11) auto; padding: 0 var(--space-9);
+  max-width: 1060px; margin: var(--space-11) auto; padding: 0 var(--space-9) var(--space-11);
   display: grid; grid-template-columns: 1fr 360px; gap: var(--space-8);
   /* equal-height columns so the footer (and right-aligned Check) sits directly
      below both cards — no big gap above the button when heights differ */
@@ -407,7 +407,10 @@ input[type="number"] { width: 76px; min-width: 0; }
 
 /* ---------- result workspace ---------- */
 .resultWrap {
-  max-width: 1440px; margin: var(--space-7) auto; padding: 0 var(--space-8);
+  max-width: 1440px; margin: var(--space-7) auto;
+  /* padding-bottom (not margin) so the last card keeps the same breathing room
+     as the header→first-card gap — bottom margins collapse through <body>. */
+  padding: 0 var(--space-8) var(--space-7);
   display: grid; grid-template-columns: minmax(0, 1fr) 336px; gap: var(--space-6);
   align-items: start;
 }

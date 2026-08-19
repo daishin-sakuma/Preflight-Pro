@@ -30,17 +30,18 @@
   --text: #e8e8ea;
   --muted: #9d9da6;
   --subtle: #6e6e76;
-  --accent: #822a3d;         /* filled buttons — deep, muted wine */
+  /* primary = #7f2100 (deep rust); lightened here for visibility on the dark UI */
+  --accent: #a8440e;         /* filled buttons */
   --accent-fg: #ffffff;      /* text/icon colour on an accent fill */
-  --accent-hover: #93314a;   /* button hover (slightly brighter) */
-  --accent-active: #692130;  /* button press (darker) */
-  --accent-strong: #ff3c3c;  /* links / text buttons — bright red */
-  --accent-dim: rgba(130, 42, 61, 0.20);
+  --accent-hover: #bd4f16;   /* button hover (brighter) */
+  --accent-active: #863709;  /* button press (darker) */
+  --accent-strong: #e5895c;  /* links / text buttons — warm light rust, readable on dark */
+  --accent-dim: rgba(168, 68, 14, 0.22);
   --ok: #3fb950;
   --warn: #d29922;
   --err: #f0564a;
   --info: #8b949e;
-  --ring: rgba(172, 107, 120, 0.50);
+  --ring: rgba(229, 137, 92, 0.50);
 
   /* ---- spacing scale ---- */
   --space-1: 2px;
@@ -110,17 +111,18 @@
   --text: #1f232b;
   --muted: #5b6270;
   --subtle: #8a909c;
-  --accent: #7a2230;         /* deep maroon (unchanged — light mode looked great) */
+  /* primary = #7f2100 (deep rust) used directly on the light UI */
+  --accent: #7f2100;         /* filled buttons / links */
   --accent-fg: #ffffff;      /* text/icon colour on an accent fill */
-  --accent-hover: #5f1a25;   /* button hover (darker) */
-  --accent-active: #4d141f;  /* button press (darker still) */
-  --accent-strong: #5f1a25;  /* links/text — dark maroon on light */
-  --accent-dim: rgba(122, 34, 48, 0.10);
+  --accent-hover: #6a1b00;   /* button hover (darker) */
+  --accent-active: #561500;  /* button press (darker still) */
+  --accent-strong: #7f2100;  /* links / text buttons — deep rust on light */
+  --accent-dim: rgba(127, 33, 0, 0.10);
   --ok: #15803d;
   --warn: #b45309;
   --err: #dc2626;
   --info: #64748b;
-  --ring: rgba(122, 34, 48, 0.35);
+  --ring: rgba(127, 33, 0, 0.35);
   --shadow-panel: 0 1px 2px rgba(16, 24, 40, 0.06);
   --shadow-pop: 0 1px 2px rgba(16, 24, 40, 0.10), 0 4px 12px rgba(16, 24, 40, 0.08);
   --shadow-doc: 0 8px 28px rgba(15, 20, 30, 0.35), 0 2px 8px rgba(15, 20, 30, 0.2);

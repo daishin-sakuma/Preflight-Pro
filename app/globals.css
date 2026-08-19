@@ -283,7 +283,7 @@ button { font-family: inherit; cursor: pointer; }
   padding: var(--space-4) var(--space-9);
   font-size: var(--fs-base);
   font-weight: var(--fw-semibold);
-  transition: background var(--dur), border-color var(--dur), color var(--dur);
+  transition: background var(--dur), border-color var(--dur), color var(--dur), opacity var(--dur);
 }
 @media (hover: hover) { .btn:hover { background: var(--accent-hover); } }
 .btn:active { background: var(--accent-active); }
@@ -291,7 +291,9 @@ button { font-family: inherit; cursor: pointer; }
   background: transparent; color: var(--text);
   border-color: var(--border-strong); font-weight: var(--fw-medium);
 }
-@media (hover: hover) { .btn.ghost:hover { background: var(--panel-2); border-color: var(--subtle); } }
+/* dim the whole button on hover (keeps the active outline instead of removing
+   it, which read as disabled) */
+@media (hover: hover) { .btn.ghost:hover { opacity: 0.6; } }
 .btn.small { padding: var(--space-2) var(--space-6); font-size: var(--fs-sm); }
 .btn.big { font-size: var(--fs-md); padding: var(--space-6) var(--space-12); border-radius: var(--radius-md); }
 .btn.active {

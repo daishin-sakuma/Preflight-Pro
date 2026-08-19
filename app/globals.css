@@ -546,7 +546,7 @@ input[type="number"] { width: 76px; min-width: 0; }
   position: relative; top: 1px;
   transition: background var(--dur), color var(--dur), border-color var(--dur), opacity var(--dur);
 }
-@media (hover: hover) { .previewTabs button:hover { opacity: 0.6666; } }
+@media (hover: hover) { .previewTabs button:not(.on):hover { opacity: 0.6666; } }
 .previewTabs button.on {
   color: var(--text);
   background: var(--pasteboard);

@@ -647,9 +647,16 @@ export default function Home() {
                     </div>
                   </div>
                   <button className="btn ghost small" style={{ marginLeft: 'auto' }}
-                    onClick={() => { fileRef.current = null; setPhase('upload'); }}>
+                    onClick={() => inputRef.current?.click()}>
                     Choose another file
                   </button>
+                  <input
+                    ref={inputRef}
+                    type="file"
+                    accept=".pdf,.ai,.jpg,.jpeg,.png"
+                    style={{ display: 'none' }}
+                    onChange={(e) => onFiles(e.target.files)}
+                  />
                 </div>
                 <div className="estimateBox">
                   {estimating ? (

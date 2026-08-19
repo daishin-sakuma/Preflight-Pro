@@ -382,7 +382,7 @@ export default function Home() {
     }
     // measured bleed from a PDF TrimBox (snap to the nearest offered option)
     if (pre.kind === 'pdf' && pre.hasTrimBox && pre.bleedMm != null && pre.bleedMm > 0.3) {
-      d.bleedMm = [0, 2, 3, 5].reduce((a, b) => Math.abs(b - pre.bleedMm!) < Math.abs(a - pre.bleedMm!) ? b : a);
+      d.bleedMm = [0, 2, 3, 5, 10].reduce((a, b) => Math.abs(b - pre.bleedMm!) < Math.abs(a - pre.bleedMm!) ? b : a);
     }
     // embedded image resolution → required resolution
     if (pre.image?.dpi) d.minDpi = pre.image.dpi;

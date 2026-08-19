@@ -778,11 +778,9 @@ export default function Home() {
 
       {phase === 'analyzing' && (
         <div className="analyzing">
-          <div className="orbit" role="status" aria-label="Loading">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <span key={i} style={{ '--i': i } as React.CSSProperties} />
-            ))}
-          </div>
+          <svg className="orbit" viewBox="25 25 50 50" role="status" aria-label="Loading">
+            <circle className="orbitPath" cx="50" cy="50" r="20" fill="none" />
+          </svg>
           <h2>Checking data…</h2>
           <div className="msg">{progress}</div>
         </div>

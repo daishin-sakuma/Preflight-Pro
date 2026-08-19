@@ -430,23 +430,26 @@ input[type="number"] { width: 76px; min-width: 0; }
 /* ---------- analyzing ---------- */
 .analyzing { max-width: 520px; margin: 110px auto; text-align: center; }
 .analyzing h2 { font-size: var(--fs-lg); font-weight: var(--fw-semibold); }
-/* OrbitProgress-style loader: a ring of dots with a rotating fade */
+/* OrbitProgress "disc" loader: a rotating arc that grows/shrinks (Material-style) */
 .orbit {
-  position: relative;
-  width: 46px; height: 46px;
-  margin: 0 auto var(--space-9);
+  width: 48px; height: 48px; margin: 0 auto var(--space-9);
+  transform-origin: center;
+  animation: orbitRotate 2s linear infinite;
 }
-.orbit span {
-  position: absolute; top: 0; left: 50%;
-  width: 7px; height: 7px; margin-left: -3.5px;
-  border-radius: 50%;
-  background: var(--accent);
-  transform-origin: 3.5px 23px;                 /* rotate around the ring centre (r=23) */
-  transform: rotate(calc(var(--i) * 45deg));
-  animation: orbitFade 0.9s linear infinite;
-  animation-delay: calc(var(--i) * -0.1125s);   /* stagger by one dot per step */
+.orbit .orbitPath {
+  stroke: #3189cc;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 1, 125;
+  stroke-dashoffset: 0;
+  animation: orbitStroke 1.5s ease-in-out infinite;
 }
-@keyframes orbitFade { 0% { opacity: 1; } 100% { opacity: 0.18; } }
+@keyframes orbitRotate { 100% { transform: rotate(360deg); } }
+@keyframes orbitStroke {
+  0%   { stroke-dasharray: 1, 125;  stroke-dashoffset: 0; }
+  50%  { stroke-dasharray: 98, 125; stroke-dashoffset: -35px; }
+  100% { stroke-dasharray: 98, 125; stroke-dashoffset: -124px; }
+}
 .analyzing .msg { color: var(--muted); margin-top: var(--space-4); min-height: 22px; font-size: var(--fs-sm); }
 
 /* ---------- result workspace ---------- */

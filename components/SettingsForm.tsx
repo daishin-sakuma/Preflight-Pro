@@ -81,7 +81,7 @@ export default function SettingsForm({ settings, onChange: set }: Props) {
         <label>Bleed<span className="hint">Usually 3mm</span></label>
         <select
           value={isCustomBleed ? 'custom' : String(settings.bleedMm)}
-          onChange={(e) => set('bleedMm', e.target.value === 'custom' ? 3 : +e.target.value)}>
+          onChange={(e) => set('bleedMm', e.target.value === 'custom' ? 4 : +e.target.value)}>
           {BLEED_CHOICES.map((v) => <option key={v} value={v}>{v}mm</option>)}
           <option value="custom">Custom…</option>
         </select>

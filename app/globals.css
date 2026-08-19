@@ -181,6 +181,9 @@ button { font-family: inherit; cursor: pointer; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
+  /* the loading indicator must keep spinning to signal progress on any device */
+  .orbit { animation: orbitRotate 2s linear infinite !important; }
+  .orbit .orbitPath { animation: orbitStroke 1.5s ease-in-out infinite !important; }
 }
 
 /* ---------- toolbar ---------- */

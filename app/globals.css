@@ -30,17 +30,17 @@
   --text: #e8e8ea;
   --muted: #9d9da6;
   --subtle: #6e6e76;
-  --accent: #a8324a;         /* maroon, brightened for visibility on dark */
+  --accent: #8c2f43;         /* deep, muted wine — refined on dark, still visible */
   --accent-fg: #ffffff;      /* text/icon colour on an accent fill */
-  --accent-hover: #bd3b55;   /* button hover (brighter) */
-  --accent-active: #8e2b40;  /* button press (darker) */
-  --accent-strong: #db8fa1;  /* links/text — light rose, readable on dark */
-  --accent-dim: rgba(168, 50, 74, 0.20);
+  --accent-hover: #9c3551;   /* button hover (slightly brighter) */
+  --accent-active: #722636;  /* button press (darker) */
+  --accent-strong: #c98a97;  /* links/text — muted dusty rose, readable on dark */
+  --accent-dim: rgba(140, 47, 67, 0.20);
   --ok: #3fb950;
   --warn: #d29922;
   --err: #f0564a;
   --info: #8b949e;
-  --ring: rgba(219, 143, 161, 0.50);
+  --ring: rgba(201, 138, 151, 0.50);
 
   /* ---- spacing scale ---- */
   --space-1: 2px;

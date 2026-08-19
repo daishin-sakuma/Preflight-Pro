@@ -30,15 +30,17 @@
   --text: #e8e8ea;
   --muted: #9d9da6;
   --subtle: #6e6e76;
-  --accent: #ededf0;         /* neutral / monochrome accent (near-white on dark) */
-  --accent-fg: #1a1a1b;      /* text/icon colour on an accent fill */
-  --accent-strong: #ffffff;
-  --accent-dim: rgba(237, 237, 240, 0.12);
+  --accent: #a8324a;         /* maroon, brightened for visibility on dark */
+  --accent-fg: #ffffff;      /* text/icon colour on an accent fill */
+  --accent-hover: #bd3b55;   /* button hover (brighter) */
+  --accent-active: #8e2b40;  /* button press (darker) */
+  --accent-strong: #db8fa1;  /* links/text — light rose, readable on dark */
+  --accent-dim: rgba(168, 50, 74, 0.20);
   --ok: #3fb950;
   --warn: #d29922;
   --err: #f0564a;
   --info: #8b949e;
-  --ring: rgba(237, 237, 240, 0.50);
+  --ring: rgba(219, 143, 161, 0.50);
 
   /* ---- spacing scale ---- */
   --space-1: 2px;
@@ -108,15 +110,17 @@
   --text: #1f232b;
   --muted: #5b6270;
   --subtle: #8a909c;
-  --accent: #1f232b;         /* neutral / monochrome accent (near-black on light) */
+  --accent: #7a2230;         /* deep maroon (unchanged — light mode looked great) */
   --accent-fg: #ffffff;      /* text/icon colour on an accent fill */
-  --accent-strong: #000000;
-  --accent-dim: rgba(31, 35, 43, 0.08);
+  --accent-hover: #5f1a25;   /* button hover (darker) */
+  --accent-active: #4d141f;  /* button press (darker still) */
+  --accent-strong: #5f1a25;  /* links/text — dark maroon on light */
+  --accent-dim: rgba(122, 34, 48, 0.10);
   --ok: #15803d;
   --warn: #b45309;
   --err: #dc2626;
   --info: #64748b;
-  --ring: rgba(31, 35, 43, 0.35);
+  --ring: rgba(122, 34, 48, 0.35);
   --shadow-panel: 0 1px 2px rgba(16, 24, 40, 0.06);
   --shadow-pop: 0 1px 2px rgba(16, 24, 40, 0.10), 0 4px 12px rgba(16, 24, 40, 0.08);
   --shadow-doc: 0 8px 28px rgba(15, 20, 30, 0.35), 0 2px 8px rgba(15, 20, 30, 0.2);
@@ -281,12 +285,8 @@ button { font-family: inherit; cursor: pointer; }
   font-weight: var(--fw-semibold);
   transition: background var(--dur), border-color var(--dur), color var(--dur);
 }
-/* monochrome accent has little headroom to brighten, so hover/press shift the
-   fill toward the background for a clearly visible change in both themes */
-@media (hover: hover) {
-  .btn:hover { background: color-mix(in srgb, var(--accent) 80%, var(--ground)); }
-}
-.btn:active { background: color-mix(in srgb, var(--accent) 66%, var(--ground)); }
+@media (hover: hover) { .btn:hover { background: var(--accent-hover); } }
+.btn:active { background: var(--accent-active); }
 .btn.ghost {
   background: transparent; color: var(--text);
   border-color: var(--border-strong); font-weight: var(--fw-medium);

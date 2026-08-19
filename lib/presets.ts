@@ -26,10 +26,12 @@ export function paperSizeMm(
   paperId: string, customW: number, customH: number, landscape: boolean,
 ): { wMm: number; hMm: number } {
   const p = PAPER_PRESETS.find((q) => q.id === paperId) ?? PAPER_PRESETS[1];
-  let w = paperId === 'custom' ? customW : p.wMm;
-  let h = paperId === 'custom' ? customH : p.hMm;
-  if (landscape) [w, h] = [h, w];
-  return { wMm: w, hMm: h };
+  const w = paperId === 'custom' ? customW : p.wMm;
+  const h = paperId === 'custom' ? customH : p.hMm;
+  // Normalise to absolute orientation regardless of how the preset is defined:
+  // portrait = tall (short × long), landscape = wide (long × short).
+  const short = Math.min(w, h), long = Math.max(w, h);
+  return landscape ? { wMm: long, hMm: short } : { wMm: short, hMm: long };
 }
 
 export const TAC_CHOICES = [250, 260, 280, 300, 310, 320, 350];

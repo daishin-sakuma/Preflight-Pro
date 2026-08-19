@@ -46,11 +46,12 @@ const r1 = (v: number) => Math.round(v * 10) / 10;
 function matchPreset(w: number, h: number): { presetId: string; landscape: boolean } | null {
   for (const p of PAPER_PRESETS) {
     if (p.id === 'custom') continue;
-    if (Math.abs(w - p.wMm) <= TOL_MM && Math.abs(h - p.hMm) <= TOL_MM) {
-      return { presetId: p.id, landscape: false };
-    }
-    if (Math.abs(w - p.hMm) <= TOL_MM && Math.abs(h - p.wMm) <= TOL_MM) {
-      return { presetId: p.id, landscape: true };
+    // match the preset in either orientation; the flag is the file's absolute
+    // orientation (wide = landscape), matching paperSizeMm's normalisation.
+    const direct = Math.abs(w - p.wMm) <= TOL_MM && Math.abs(h - p.hMm) <= TOL_MM;
+    const swapped = Math.abs(w - p.hMm) <= TOL_MM && Math.abs(h - p.wMm) <= TOL_MM;
+    if (direct || swapped) {
+      return { presetId: p.id, landscape: w > h };
     }
   }
   return null;

@@ -47,7 +47,16 @@ export default function SettingsForm({ settings, onChange: set }: Props) {
     <>
       <div className="formRow">
         <label>Finished size</label>
-        <select value={settings.paperId} onChange={(e) => set('paperId', e.target.value)}>
+        <select
+          value={settings.paperId}
+          onChange={(e) => {
+            const id = e.target.value;
+            set('paperId', id);
+            // default the orientation to the preset's natural shape (so e.g.
+            // "Business card JP (91×55)" lands as landscape, matching its label)
+            const p = PAPER_PRESETS.find((q) => q.id === id);
+            if (p && id !== 'custom') set('landscape', p.wMm > p.hMm);
+          }}>
           {PAPER_PRESETS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
         </select>
       </div>

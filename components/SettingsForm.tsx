@@ -39,10 +39,15 @@ function NumberField({
 }
 
 export default function SettingsForm({ settings, onChange: set }: Props) {
-  const isCustomTac = !TAC_CHOICES.includes(settings.tacLimit);
-  const isCustomDpi = !DPI_CHOICES.includes(settings.minDpi);
   const BLEED_CHOICES = [0, 2, 3, 5, 10];
-  const isCustomBleed = !BLEED_CHOICES.includes(settings.bleedMm);
+  // "Custom" is a sticky, explicit mode: once chosen it stays even if the value
+  // happens to equal a preset. It also turns on for any non-preset value.
+  const [tacCustom, setTacCustom] = useState(false);
+  const [dpiCustom, setDpiCustom] = useState(false);
+  const [bleedCustom, setBleedCustom] = useState(false);
+  const showTacCustom = tacCustom || !TAC_CHOICES.includes(settings.tacLimit);
+  const showDpiCustom = dpiCustom || !DPI_CHOICES.includes(settings.minDpi);
+  const showBleedCustom = bleedCustom || !BLEED_CHOICES.includes(settings.bleedMm);
   return (
     <>
       <div className="formRow">
@@ -80,13 +85,16 @@ export default function SettingsForm({ settings, onChange: set }: Props) {
       <div className="formRow">
         <label>Bleed<span className="hint">Usually 3mm</span></label>
         <select
-          value={isCustomBleed ? 'custom' : String(settings.bleedMm)}
-          onChange={(e) => set('bleedMm', e.target.value === 'custom' ? 4 : +e.target.value)}>
+          value={showBleedCustom ? 'custom' : String(settings.bleedMm)}
+          onChange={(e) => {
+            if (e.target.value === 'custom') setBleedCustom(true);
+            else { setBleedCustom(false); set('bleedMm', +e.target.value); }
+          }}>
           {BLEED_CHOICES.map((v) => <option key={v} value={v}>{v}mm</option>)}
           <option value="custom">Custom…</option>
         </select>
       </div>
-      {isCustomBleed && (
+      {showBleedCustom && (
         <div className="formRow">
           <label>Custom bleed (mm)</label>
           <span className="inline">
@@ -98,13 +106,16 @@ export default function SettingsForm({ settings, onChange: set }: Props) {
       <div className="formRow">
         <label>Total ink limit<span className="hint">Coated ~300% / uncoated ~250%</span></label>
         <select
-          value={isCustomTac ? 'custom' : String(settings.tacLimit)}
-          onChange={(e) => set('tacLimit', e.target.value === 'custom' ? 290 : +e.target.value)}>
+          value={showTacCustom ? 'custom' : String(settings.tacLimit)}
+          onChange={(e) => {
+            if (e.target.value === 'custom') setTacCustom(true);
+            else { setTacCustom(false); set('tacLimit', +e.target.value); }
+          }}>
           {TAC_CHOICES.map((v) => <option key={v} value={v}>{v}%</option>)}
           <option value="custom">Custom…</option>
         </select>
       </div>
-      {isCustomTac && (
+      {showTacCustom && (
         <div className="formRow">
           <label>Custom ink limit (%)</label>
           <span className="inline">
@@ -116,13 +127,16 @@ export default function SettingsForm({ settings, onChange: set }: Props) {
       <div className="formRow">
         <label>Required resolution<span className="hint">Color/gray: 300–350dpi</span></label>
         <select
-          value={isCustomDpi ? 'custom' : String(settings.minDpi)}
-          onChange={(e) => set('minDpi', e.target.value === 'custom' ? 120 : +e.target.value)}>
+          value={showDpiCustom ? 'custom' : String(settings.minDpi)}
+          onChange={(e) => {
+            if (e.target.value === 'custom') setDpiCustom(true);
+            else { setDpiCustom(false); set('minDpi', +e.target.value); }
+          }}>
           {DPI_CHOICES.map((v) => <option key={v} value={v}>{v}dpi</option>)}
           <option value="custom">Custom…</option>
         </select>
       </div>
-      {isCustomDpi && (
+      {showDpiCustom && (
         <div className="formRow">
           <label>Custom resolution (dpi)</label>
           <span className="inline">

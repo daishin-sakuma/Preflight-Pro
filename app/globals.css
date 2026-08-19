@@ -34,7 +34,7 @@
   --accent-fg: #ffffff;      /* text/icon colour on an accent fill */
   --accent-hover: #c21c1c;   /* button hover (brighter) */
   --accent-active: #8c1414;  /* button press (darker) */
-  --accent-strong: #d06a6a;  /* links/text — lighter red, readable on dark */
+  --accent-strong: #ac1919;  /* links/text — same as the base accent */
   --accent-dim: rgba(172, 25, 25, 0.20);
   --ok: #3fb950;
   --warn: #d29922;

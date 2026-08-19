@@ -30,17 +30,17 @@
   --text: #e8e8ea;
   --muted: #9d9da6;
   --subtle: #6e6e76;
-  --accent: #822a3d;         /* deep, muted wine — refined on dark, still visible */
+  --accent: #ac1919;         /* base accent (dark) */
   --accent-fg: #ffffff;      /* text/icon colour on an accent fill */
-  --accent-hover: #93314a;   /* button hover (slightly brighter) */
-  --accent-active: #692130;  /* button press (darker) */
-  --accent-strong: #ac6b78;  /* links/text — deeper muted rose */
-  --accent-dim: rgba(130, 42, 61, 0.20);
+  --accent-hover: #c21c1c;   /* button hover (brighter) */
+  --accent-active: #8c1414;  /* button press (darker) */
+  --accent-strong: #d06a6a;  /* links/text — lighter red, readable on dark */
+  --accent-dim: rgba(172, 25, 25, 0.20);
   --ok: #3fb950;
   --warn: #d29922;
   --err: #f0564a;
   --info: #8b949e;
-  --ring: rgba(172, 107, 120, 0.50);
+  --ring: rgba(208, 106, 106, 0.50);
 
   /* ---- spacing scale ---- */
   --space-1: 2px;

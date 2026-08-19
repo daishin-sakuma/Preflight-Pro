@@ -2,12 +2,40 @@
 
 // Check-settings form (shared by the confirm step and re-check flow).
 
+import { useEffect, useRef, useState } from 'react';
 import type { Settings } from '@/lib/types';
 import { PAPER_PRESETS, TAC_CHOICES, DPI_CHOICES } from '@/lib/presets';
 
 interface Props {
   settings: Settings;
   onChange: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
+}
+
+// Numeric input that keeps an editable string draft, so the field can be cleared
+// (empty) while editing instead of snapping to 0. Commits a number on change/blur.
+function NumberField({
+  value, onCommit, min, max, step,
+}: { value: number; onCommit: (v: number) => void; min?: number; max?: number; step?: number }) {
+  const [draft, setDraft] = useState(String(value));
+  const focused = useRef(false);
+  // sync from outside (e.g. "Use detected settings") only when not being edited
+  useEffect(() => { if (!focused.current) setDraft(String(value)); }, [value]);
+  return (
+    <input
+      type="number" value={draft} min={min} max={max} step={step}
+      onFocus={(e) => { focused.current = true; e.currentTarget.select(); }}
+      onChange={(e) => {
+        const s = e.target.value;
+        setDraft(s);
+        if (s !== '' && !Number.isNaN(Number(s))) onCommit(Number(s));
+      }}
+      onBlur={() => {
+        focused.current = false;
+        if (draft === '' || Number.isNaN(Number(draft))) setDraft(String(value));
+        else { const n = Number(draft); onCommit(n); setDraft(String(n)); }
+      }}
+    />
+  );
 }
 
 export default function SettingsForm({ settings, onChange: set }: Props) {
@@ -27,13 +55,9 @@ export default function SettingsForm({ settings, onChange: set }: Props) {
         <div className="formRow">
           <label>Custom size (mm)</label>
           <span className="inline">
-            <input type="number" value={settings.customWmm} min={10}
-              onFocus={(e) => e.currentTarget.select()}
-              onChange={(e) => set('customWmm', +e.target.value)} />
+            <NumberField value={settings.customWmm} min={10} onCommit={(v) => set('customWmm', v)} />
             ×
-            <input type="number" value={settings.customHmm} min={10}
-              onFocus={(e) => e.currentTarget.select()}
-              onChange={(e) => set('customHmm', +e.target.value)} />
+            <NumberField value={settings.customHmm} min={10} onCommit={(v) => set('customHmm', v)} />
           </span>
         </div>
       )}
@@ -57,9 +81,7 @@ export default function SettingsForm({ settings, onChange: set }: Props) {
         <div className="formRow">
           <label>Custom bleed (mm)</label>
           <span className="inline">
-            <input type="number" value={settings.bleedMm} min={0} max={50} step={0.5}
-              onFocus={(e) => e.currentTarget.select()}
-              onChange={(e) => set('bleedMm', +e.target.value)} />
+            <NumberField value={settings.bleedMm} min={0} max={50} step={0.5} onCommit={(v) => set('bleedMm', v)} />
             mm
           </span>
         </div>
@@ -77,9 +99,7 @@ export default function SettingsForm({ settings, onChange: set }: Props) {
         <div className="formRow">
           <label>Custom ink limit (%)</label>
           <span className="inline">
-            <input type="number" value={settings.tacLimit} min={1} max={400} step={1}
-              onFocus={(e) => e.currentTarget.select()}
-              onChange={(e) => set('tacLimit', +e.target.value)} />
+            <NumberField value={settings.tacLimit} min={1} max={400} step={1} onCommit={(v) => set('tacLimit', v)} />
             %
           </span>
         </div>
@@ -97,9 +117,7 @@ export default function SettingsForm({ settings, onChange: set }: Props) {
         <div className="formRow">
           <label>Custom resolution (dpi)</label>
           <span className="inline">
-            <input type="number" value={settings.minDpi} min={1} step={1}
-              onFocus={(e) => e.currentTarget.select()}
-              onChange={(e) => set('minDpi', +e.target.value)} />
+            <NumberField value={settings.minDpi} min={1} step={1} onCommit={(v) => set('minDpi', v)} />
             dpi
           </span>
         </div>

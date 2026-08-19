@@ -215,7 +215,7 @@ button { font-family: inherit; cursor: pointer; }
   width: 30px; height: 30px; padding: 0;   /* bare icon button, no outline */
   background: none; border: none;
   color: var(--muted);
-  transition: color var(--dur);
+  transition: color var(--dur), opacity var(--dur);
 }
 @media (hover: hover) { .themeToggle:hover { opacity: 0.6666; } }
 .themeIcon { display: inline-flex; width: 16px; height: 16px; }
@@ -491,7 +491,7 @@ input[type="number"] { width: 76px; min-width: 0; }
   background: none; border: none; border-radius: 0; padding: 0;
   color: var(--accent-strong);
   font-size: var(--fs-sm); font-weight: var(--fw-regular);
-  white-space: nowrap; transition: color var(--dur);
+  white-space: nowrap; transition: color var(--dur), opacity var(--dur);
   text-decoration: none;
 }
 @media (hover: hover) { .previewTabs .tabAction:hover { opacity: 0.6666; } }
@@ -636,7 +636,7 @@ input[type="number"] { width: 76px; min-width: 0; }
   background: none; border: none; padding: 0;
   font-size: var(--fs-md); line-height: 1; cursor: pointer;
   color: var(--muted);
-  transition: color var(--dur);
+  transition: color var(--dur), opacity var(--dur);
 }
 @media (hover: hover) { .scClose:hover { opacity: 0.6666; } }
 .scGrid {
@@ -689,7 +689,7 @@ input[type="number"] { width: 76px; min-width: 0; }
   background: transparent; border: none; color: var(--text);
   width: 26px; height: 24px; border-radius: var(--radius-sm);
   font-size: var(--fs-md); font-weight: var(--fw-bold); line-height: 1;
-  transition: background var(--dur);
+  transition: background var(--dur), opacity var(--dur);
 }
 @media (hover: hover) { .zoomCtl button:hover { opacity: 0.6666; } }
 .zoomCtl button:last-child { width: auto; padding: 0 var(--space-4); font-size: var(--fs-xs); font-weight: var(--fw-semibold); }
@@ -749,7 +749,7 @@ input[type="number"] { width: 76px; min-width: 0; }
   padding: var(--space-4) var(--space-6);
   background: var(--panel-2);
   border: none; color: var(--text); text-align: left;
-  transition: background var(--dur);
+  transition: background var(--dur), opacity var(--dur);
 }
 @media (hover: hover) { .catHead:hover { opacity: 0.6666; } }
 .catHead .num {
@@ -796,7 +796,7 @@ input[type="number"] { width: 76px; min-width: 0; }
   padding: var(--space-2) var(--space-6);
   font-size: var(--fs-xs);
   font-weight: var(--fw-semibold);
-  transition: background var(--dur), border-color var(--dur);
+  transition: background var(--dur), border-color var(--dur), opacity var(--dur);
 }
 @media (hover: hover) { .locateBtn:hover { opacity: 0.6666; } }
 .locateBtn.on { background: var(--accent-dim); border-color: var(--accent); }

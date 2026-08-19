@@ -30,18 +30,18 @@
   --text: #e8e8ea;
   --muted: #9d9da6;
   --subtle: #6e6e76;
-  /* primary = #7f2100 (deep rust); lightened here for visibility on the dark UI */
-  --accent: #a8440e;         /* filled buttons */
+  /* primary = #7f2100 (deep rust); a darker, moodier take for the dark UI */
+  --accent: #7a3109;         /* filled buttons */
   --accent-fg: #ffffff;      /* text/icon colour on an accent fill */
-  --accent-hover: #bd4f16;   /* button hover (brighter) */
-  --accent-active: #863709;  /* button press (darker) */
-  --accent-strong: #e5895c;  /* links / text buttons — warm light rust, readable on dark */
-  --accent-dim: rgba(168, 68, 14, 0.22);
+  --accent-hover: #8c3a0d;   /* button hover */
+  --accent-active: #5e2606;  /* button press (darker) */
+  --accent-strong: #cd7444;  /* links / text buttons — rust, readable on dark */
+  --accent-dim: rgba(122, 49, 9, 0.22);
   --ok: #3fb950;
   --warn: #d29922;
   --err: #f0564a;
   --info: #8b949e;
-  --ring: rgba(229, 137, 92, 0.50);
+  --ring: rgba(205, 116, 68, 0.50);
 
   /* ---- spacing scale ---- */
   --space-1: 2px;
@@ -111,18 +111,18 @@
   --text: #1f232b;
   --muted: #5b6270;
   --subtle: #8a909c;
-  /* primary = #7f2100 (deep rust) used directly on the light UI */
-  --accent: #7f2100;         /* filled buttons / links */
+  /* primary = #7f2100 (deep rust); brightened one step for the light UI */
+  --accent: #96300a;         /* filled buttons / links */
   --accent-fg: #ffffff;      /* text/icon colour on an accent fill */
-  --accent-hover: #6a1b00;   /* button hover (darker) */
-  --accent-active: #561500;  /* button press (darker still) */
-  --accent-strong: #7f2100;  /* links / text buttons — deep rust on light */
-  --accent-dim: rgba(127, 33, 0, 0.10);
+  --accent-hover: #7f2100;   /* button hover (darker) */
+  --accent-active: #6a1c00;  /* button press (darker still) */
+  --accent-strong: #96300a;  /* links / text buttons — rust on light */
+  --accent-dim: rgba(150, 48, 10, 0.10);
   --ok: #15803d;
   --warn: #b45309;
   --err: #dc2626;
   --info: #64748b;
-  --ring: rgba(127, 33, 0, 0.35);
+  --ring: rgba(150, 48, 10, 0.35);
   --shadow-panel: 0 1px 2px rgba(16, 24, 40, 0.06);
   --shadow-pop: 0 1px 2px rgba(16, 24, 40, 0.10), 0 4px 12px rgba(16, 24, 40, 0.08);
   --shadow-doc: 0 8px 28px rgba(15, 20, 30, 0.35), 0 2px 8px rgba(15, 20, 30, 0.2);

@@ -555,6 +555,9 @@ input[type="number"] { width: 76px; min-width: 0; }
   background: var(--pasteboard);
   border-color: var(--border);
 }
+/* light mode: the pasteboard is a mid-grey, so use white to keep the active
+   tab clearly the lighter/brighter one */
+[data-theme='light'] .previewTabs button.on { background: var(--panel); }
 .previewStage {
   background: var(--pasteboard);
   position: relative;

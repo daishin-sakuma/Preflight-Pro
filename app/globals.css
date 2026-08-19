@@ -133,10 +133,6 @@
 [data-theme='light'] .status.warning { color: #ffffff; }
 [data-theme='light'] .status.info { background: #dfe3ea; color: #3c4350; }
 [data-theme='light'] .zoomCtl { background: rgba(255, 255, 255, 0.92); }
-@media (hover: hover) {
-  [data-theme='light'] .catHead:hover { background: #e9ecf1; }
-  [data-theme='light'] .zoomCtl button:hover { background: #e9ecf1; }
-}
 [data-theme='light'] .errorBox h2 { color: #b91c1c; }
 [data-theme='light'] ::-webkit-scrollbar-thumb { background: var(--border-strong); border-color: var(--ground); }
 
@@ -165,10 +161,11 @@ button { font-family: inherit; cursor: pointer; }
    their own `transition` (buttons, etc.) keep it and win the cascade; this only
    provides a default for everything else so colours cross-fade on toggle. */
 *, *::before, *::after {
-  transition-property: background-color, border-color, color, fill, stroke;
+  transition-property: background-color, border-color, color, fill, stroke, opacity;
   transition-duration: var(--dur);
   transition-timing-function: ease;
 }
+/* App-wide hover convention: interactive elements dim to 0.6666 on hover. */
 
 :focus-visible {
   outline: 2px solid var(--ring);
@@ -209,7 +206,7 @@ button { font-family: inherit; cursor: pointer; }
   display: flex; align-items: center; gap: var(--space-4);
   background: none; border: none; padding: 0; cursor: pointer;
 }
-@media (hover: hover) { .logo:hover .mark { color: var(--muted); } }
+@media (hover: hover) { .logo:hover { opacity: 0.6666; } }
 .logoImg { width: 20px; height: 20px; display: block; border-radius: 5px; }
 .logo .mark { font-size: var(--fs-md); font-weight: var(--fw-bold); letter-spacing: 0.2px; color: var(--text); transition: color var(--dur); }
 .themeToggle {
@@ -220,7 +217,7 @@ button { font-family: inherit; cursor: pointer; }
   color: var(--muted);
   transition: color var(--dur);
 }
-@media (hover: hover) { .themeToggle:hover { color: var(--text); } }
+@media (hover: hover) { .themeToggle:hover { opacity: 0.6666; } }
 .themeIcon { display: inline-flex; width: 16px; height: 16px; }
 .themeIcon svg { width: 16px; height: 16px; display: block; }
 
@@ -287,15 +284,13 @@ button { font-family: inherit; cursor: pointer; }
   font-weight: var(--fw-semibold);
   transition: background var(--dur), border-color var(--dur), color var(--dur), opacity var(--dur);
 }
-@media (hover: hover) { .btn:hover { background: var(--accent-hover); } }
+@media (hover: hover) { .btn:hover { opacity: 0.6666; } }
 .btn:active { background: var(--accent-active); }
 .btn.ghost {
   background: transparent; color: var(--text);
   border-color: var(--border-strong); font-weight: var(--fw-medium);
 }
-/* dim the whole button on hover (keeps the active outline instead of removing
-   it, which read as disabled) */
-@media (hover: hover) { .btn.ghost:hover { opacity: 0.6; } }
+@media (hover: hover) { .btn.ghost:hover { opacity: 0.6666; } }
 .btn.small { padding: var(--space-2) var(--space-6); font-size: var(--fs-sm); }
 .btn.big { font-size: var(--fs-md); padding: var(--space-6) var(--space-12); border-radius: var(--radius-md); }
 .btn.active {
@@ -409,7 +404,7 @@ input[type="number"] { width: 76px; min-width: 0; }
 .landing p { margin-bottom: var(--space-5); }
 .landing strong { color: var(--text); font-weight: var(--fw-semibold); }
 .landing a { color: var(--accent-strong); text-decoration: none; }
-@media (hover: hover) { .landing a:hover { color: color-mix(in srgb, var(--accent-strong), var(--muted)); } }
+@media (hover: hover) { .landing a:hover { opacity: 0.6666; } }
 .landingNav { display: flex; gap: var(--space-6); flex-wrap: wrap; margin-bottom: var(--space-6); font-size: var(--fs-xs); }
 .landingList { list-style: none; display: flex; flex-direction: column; gap: var(--space-3); margin-bottom: var(--space-5); }
 .landingList li { position: relative; padding-left: var(--space-5); }
@@ -499,7 +494,7 @@ input[type="number"] { width: 76px; min-width: 0; }
   white-space: nowrap; transition: color var(--dur);
   text-decoration: none;
 }
-@media (hover: hover) { .previewTabs .tabAction:hover { color: color-mix(in srgb, var(--accent-strong), var(--muted)); } }
+@media (hover: hover) { .previewTabs .tabAction:hover { opacity: 0.6666; } }
 @media (max-width: 620px) { .tabInfo .meta { display: none; } .tabInfo .name { max-width: 120px; } }
 
 .summaryBanner {
@@ -584,14 +579,7 @@ input[type="number"] { width: 76px; min-width: 0; }
   transition: background var(--dur) ease, color var(--dur) ease, border-color var(--dur) ease,
     box-shadow var(--dur) ease, transform var(--dur) ease, opacity var(--dur) ease;
 }
-@media (hover: hover) {
-  .pageNav:hover:not(:disabled) {
-    color: var(--text);
-    background: var(--panel);
-    border-color: var(--subtle);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.20), 0 6px 16px rgba(0, 0, 0, 0.14);
-  }
-}
+@media (hover: hover) { .pageNav:hover:not(:disabled) { opacity: 0.6666; } }
 .pageNav:active:not(:disabled) { transform: translateY(-50%) scale(0.94); }
 .pageNav:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .pageNav:disabled { opacity: .38; cursor: default; }
@@ -650,7 +638,7 @@ input[type="number"] { width: 76px; min-width: 0; }
   color: var(--muted);
   transition: color var(--dur);
 }
-@media (hover: hover) { .scClose:hover { color: var(--text); } }
+@media (hover: hover) { .scClose:hover { opacity: 0.6666; } }
 .scGrid {
   display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4) var(--space-11);
   padding: var(--space-8) var(--space-9) var(--space-10);
@@ -703,7 +691,7 @@ input[type="number"] { width: 76px; min-width: 0; }
   font-size: var(--fs-md); font-weight: var(--fw-bold); line-height: 1;
   transition: background var(--dur);
 }
-@media (hover: hover) { .zoomCtl button:hover { background: var(--panel-2); } }
+@media (hover: hover) { .zoomCtl button:hover { opacity: 0.6666; } }
 .zoomCtl button:last-child { width: auto; padding: 0 var(--space-4); font-size: var(--fs-xs); font-weight: var(--fw-semibold); }
 .zoomPct {
   min-width: 44px; text-align: center;
@@ -763,7 +751,7 @@ input[type="number"] { width: 76px; min-width: 0; }
   border: none; color: var(--text); text-align: left;
   transition: background var(--dur);
 }
-@media (hover: hover) { .catHead:hover { background: #38383a; } }
+@media (hover: hover) { .catHead:hover { opacity: 0.6666; } }
 .catHead .num {
   width: 18px; height: 18px; border-radius: var(--radius-sm);
   background: var(--panel-3); color: var(--muted);
@@ -810,7 +798,7 @@ input[type="number"] { width: 76px; min-width: 0; }
   font-weight: var(--fw-semibold);
   transition: background var(--dur), border-color var(--dur);
 }
-@media (hover: hover) { .locateBtn:hover { background: var(--accent-dim); border-color: var(--accent); } }
+@media (hover: hover) { .locateBtn:hover { opacity: 0.6666; } }
 .locateBtn.on { background: var(--accent-dim); border-color: var(--accent); }
 
 /* left column: preview + footnote stacked, sidebar height independent */

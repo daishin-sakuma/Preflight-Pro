@@ -200,7 +200,7 @@ button { font-family: inherit; cursor: pointer; }
   display: flex; align-items: center; gap: var(--space-4);
   background: none; border: none; padding: 0; cursor: pointer;
 }
-@media (hover: hover) { .logo:hover .mark { color: var(--accent-strong); } }
+@media (hover: hover) { .logo:hover .mark { color: var(--muted); } }
 .logoImg { width: 20px; height: 20px; display: block; border-radius: 5px; }
 .logo .mark { font-size: var(--fs-md); font-weight: var(--fw-bold); letter-spacing: 0.2px; color: var(--text); transition: color var(--dur); }
 .themeToggle {

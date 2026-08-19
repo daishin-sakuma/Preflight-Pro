@@ -2,10 +2,10 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Preflight — print data check & proofing',
-    short_name: 'Preflight',
+    name: 'Preflight Pro — print data check & proofing',
+    short_name: 'Preflight Pro',
     description:
-      'Preflight print data (PDF / Illustrator / JPEG / PNG) right in your browser.',
+      'Preflight Pro — check print data (PDF / Illustrator / JPEG / PNG) right in your browser.',
     start_url: '/',
     display: 'standalone',
     background_color: '#1e1e1f',

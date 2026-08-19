@@ -446,8 +446,8 @@ export default function Home() {
       <header className="header">
         <button className="logo" onClick={goHome} title="Back to top" aria-label="Back to top">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="logoImg" src="/logo.png" alt="Preflight logo" width={20} height={20} />
-          <span className="mark">Preflight</span>
+          <img className="logoImg" src="/logo.png" alt="Preflight Pro logo" width={20} height={20} />
+          <span className="mark">Preflight Pro</span>
         </button>
         <button
           className="themeToggle"
@@ -505,7 +505,7 @@ export default function Home() {
           <section className="landing">
             <h1>Print data preflight &amp; proofing in your browser</h1>
             <p>
-              <strong>Preflight</strong> is a free tool for print data preflight and proofing that runs
+              <strong>Preflight Pro</strong> is a free tool for print data preflight and proofing that runs
               entirely in your browser. Before you submit artwork to a print shop, drop in a PDF, Adobe
               Illustrator (.ai), JPEG or PNG and get an instant, detailed report. There is no sign-up and
               nothing is uploaded — every file is analysed locally in your browser, so your print data
@@ -525,9 +525,9 @@ export default function Home() {
               <a href="#faq">FAQ</a>
             </nav>
 
-            <h2 id="checks">What Preflight checks</h2>
+            <h2 id="checks">What Preflight Pro checks</h2>
             <p>
-              Preflight runs the same core checks a prepress operator would, and shows exactly where each
+              Preflight Pro runs the same core checks a prepress operator would, and shows exactly where each
               problem is on a 3D paper preview and a zoomable 2D proof. Every finding comes with a
               plain-language explanation and, where possible, an arrow that points to the affected object
               so proofing is fast and unambiguous:
@@ -549,7 +549,7 @@ export default function Home() {
             <p>
               Getting a proof takes three quick steps. First, choose a file or drag it onto the uploader
               above — the tool reads it immediately and runs a fast pre-check. Second, confirm the check
-              settings: finished size, bleed, ink limit and required resolution. Preflight can estimate
+              settings: finished size, bleed, ink limit and required resolution. Preflight Pro can estimate
               the finished size and bleed from the file itself, and your settings are remembered for next
               time. Third, press Check to run the full inspection and review the result. You can rotate
               the 3D paper preview, flip between front and back, zoom the 2D proof, and toggle guides,
@@ -560,7 +560,7 @@ export default function Home() {
 
             <h2 id="formats">Supported file types</h2>
             <p>
-              Preflight accepts the formats most commonly used for print submission: <strong>PDF</strong>,
+              Preflight Pro accepts the formats most commonly used for print submission: <strong>PDF</strong>,
               Adobe <strong>Illustrator (.ai)</strong> saved as PDF-compatible, <strong>JPEG</strong> and
               <strong> PNG</strong>. Vector files such as PDF and Illustrator are inspected object by object,
               so exact CMYK values, overprint settings and fonts are read directly from the file. Raster
@@ -575,7 +575,7 @@ export default function Home() {
               RGB, black text built from four inks, missing bleed, non-embedded fonts, or low-resolution
               images. Catching these during preflight and proofing saves time, money and a frustrating
               back-and-forth with the printer. A commercial press cannot “undo” a mistake once plates are
-              made, so a few minutes of checking up front is the cheapest insurance you can buy. Preflight
+              made, so a few minutes of checking up front is the cheapest insurance you can buy. Preflight Pro
               gives you a clear report and pinpoints each issue on the preview so you can fix it with
               confidence before you submit your <a href="#formats">print data</a>.
             </p>
@@ -594,15 +594,15 @@ export default function Home() {
 
             <h2 id="privacy">Private by design</h2>
             <p>
-              Preflight is fully client-side. Your PDF, Illustrator, JPEG and PNG files are processed
+              Preflight Pro is fully client-side. Your PDF, Illustrator, JPEG and PNG files are processed
               entirely in your browser and are never sent to a server, which keeps confidential artwork
               safe. It is free to use, requires no account, and works even without a stable connection once
               the page has loaded.
             </p>
 
             <h2 id="faq">Frequently asked questions</h2>
-            <h3>Is Preflight free?</h3>
-            <p>Yes. Preflight is completely free and does not require an account.</p>
+            <h3>Is Preflight Pro free?</h3>
+            <p>Yes. Preflight Pro is completely free and does not require an account.</p>
             <h3>Are my files uploaded anywhere?</h3>
             <p>No. All preflight and proofing happens locally in your browser; nothing is sent to a server. See <a href="#privacy">privacy</a>.</p>
             <h3>Does it replace the print shop’s own check?</h3>
@@ -617,7 +617,7 @@ export default function Home() {
               </span>
               <span aria-hidden="true">·</span>
               <span>Share:</span>
-              <a href="https://twitter.com/intent/tweet?url=https%3A%2F%2Fpreflight-pro.vercel.app&text=Preflight%20%E2%80%94%20check%20your%20print%20data%20in%20the%20browser"
+              <a href="https://twitter.com/intent/tweet?url=https%3A%2F%2Fpreflight-pro.vercel.app&text=Preflight%20Pro%20%E2%80%94%20check%20your%20print%20data%20in%20the%20browser"
                 target="_blank" rel="noopener noreferrer">X</a>
               <a href="https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Fpreflight-pro.vercel.app"
                 target="_blank" rel="noopener noreferrer">Facebook</a>

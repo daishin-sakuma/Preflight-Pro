@@ -9,25 +9,25 @@ const figtree = Figtree({
 });
 
 const SITE_URL = 'https://preflight-pro.vercel.app';
-const APP_TITLE = 'Preflight — print data check & proofing';
+const APP_TITLE = 'Preflight Pro — print data check & proofing';
 // Meta description: kept concise (~150 chars) so it isn't truncated in search results.
 const APP_DESC =
   'Free browser-based print preflight: check PDF, AI, JPEG & PNG for RGB/CMYK, ink coverage, bleed, overprint, fonts and DPI — with a 3D preview.';
 // Longer copy used only for structured data (no length limit there).
 const LONG_DESC =
-  'Preflight is a free, browser-based tool to check print data before submission. It checks PDF, Illustrator (.ai), JPEG and PNG for RGB vs CMYK, total ink coverage (TAC), bleed and trim, overprint, embedded fonts and effective resolution, with a 3D paper preview and a 2D proof. All analysis runs locally in your browser — files are never uploaded.';
+  'Preflight Pro is a free, browser-based tool to check print data before submission. It checks PDF, Illustrator (.ai), JPEG and PNG for RGB vs CMYK, total ink coverage (TAC), bleed and trim, overprint, embedded fonts and effective resolution, with a 3D paper preview and a 2D proof. All analysis runs locally in your browser — files are never uploaded.';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
     default: APP_TITLE,
-    template: '%s · Preflight',
+    template: '%s · Preflight Pro',
   },
   description: APP_DESC,
-  applicationName: 'Preflight',
+  applicationName: 'Preflight Pro',
   authors: [{ name: 'Daishin Sakuma' }],
   creator: 'Daishin Sakuma',
-  publisher: 'Preflight',
+  publisher: 'Preflight Pro',
   category: 'Design tools',
   keywords: [
     'preflight', 'print preflight', 'prepress', 'print data check', 'proofing',
@@ -59,13 +59,13 @@ export const metadata: Metadata = {
     ],
     apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
   },
-  appleWebApp: { capable: true, title: 'Preflight', statusBarStyle: 'default' },
+  appleWebApp: { capable: true, title: 'Preflight Pro', statusBarStyle: 'default' },
   openGraph: {
     title: APP_TITLE,
     description: APP_DESC,
     url: '/',
     type: 'website',
-    siteName: 'Preflight',
+    siteName: 'Preflight Pro',
     locale: 'en_US',
   },
   twitter: {
@@ -84,7 +84,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'WebApplication',
-    name: 'Preflight',
+    name: 'Preflight Pro',
     alternateName: APP_TITLE,
     url: SITE_URL,
     description: LONG_DESC,

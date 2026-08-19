@@ -30,14 +30,14 @@
   --text: #e8e8ea;
   --muted: #9d9da6;
   --subtle: #6e6e76;
-  --accent: #4b8df8;
-  --accent-strong: #6ba3ff;
-  --accent-dim: rgba(75, 141, 248, 0.14);
+  --accent: #7a2230;         /* deep maroon (from the logo) */
+  --accent-strong: #b8555f;  /* lighter rose — readable on dark for links/hover */
+  --accent-dim: rgba(122, 34, 48, 0.18);
   --ok: #3fb950;
   --warn: #d29922;
   --err: #f0564a;
   --info: #8b949e;
-  --ring: rgba(75, 141, 248, 0.45);
+  --ring: rgba(184, 85, 95, 0.50);
 
   /* ---- spacing scale ---- */
   --space-1: 2px;
@@ -107,14 +107,14 @@
   --text: #1f232b;
   --muted: #5b6270;
   --subtle: #8a909c;
-  --accent: #2563eb;
-  --accent-strong: #1d4ed8;
-  --accent-dim: rgba(37, 99, 235, 0.10);
+  --accent: #7a2230;         /* deep maroon (from the logo) */
+  --accent-strong: #5f1a25;  /* darker maroon for hover / links on light */
+  --accent-dim: rgba(122, 34, 48, 0.10);
   --ok: #15803d;
   --warn: #b45309;
   --err: #dc2626;
   --info: #64748b;
-  --ring: rgba(37, 99, 235, 0.35);
+  --ring: rgba(122, 34, 48, 0.35);
   --shadow-panel: 0 1px 2px rgba(16, 24, 40, 0.06);
   --shadow-pop: 0 1px 2px rgba(16, 24, 40, 0.10), 0 4px 12px rgba(16, 24, 40, 0.08);
   --shadow-doc: 0 8px 28px rgba(15, 20, 30, 0.35), 0 2px 8px rgba(15, 20, 30, 0.2);
@@ -437,7 +437,7 @@ input[type="number"] { width: 76px; min-width: 0; }
   animation: orbitRotate 2s linear infinite;
 }
 .orbit .orbitPath {
-  stroke: #3189cc;
+  stroke: var(--accent);
   stroke-width: 4;
   stroke-linecap: round;
   stroke-dasharray: 1, 125;

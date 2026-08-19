@@ -278,7 +278,12 @@ button { font-family: inherit; cursor: pointer; }
   font-weight: var(--fw-semibold);
   transition: background var(--dur), border-color var(--dur), color var(--dur);
 }
-@media (hover: hover) { .btn:hover { background: var(--accent-strong); } }
+/* monochrome accent has little headroom to brighten, so hover/press shift the
+   fill toward the background for a clearly visible change in both themes */
+@media (hover: hover) {
+  .btn:hover { background: color-mix(in srgb, var(--accent) 80%, var(--ground)); }
+}
+.btn:active { background: color-mix(in srgb, var(--accent) 66%, var(--ground)); }
 .btn.ghost {
   background: transparent; color: var(--text);
   border-color: var(--border-strong); font-weight: var(--fw-medium);
@@ -287,8 +292,9 @@ button { font-family: inherit; cursor: pointer; }
 .btn.small { padding: var(--space-2) var(--space-6); font-size: var(--fs-sm); }
 .btn.big { font-size: var(--fs-md); padding: var(--space-6) var(--space-12); border-radius: var(--radius-md); }
 .btn.active {
-  background: var(--accent-dim); color: var(--accent-strong);
-  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent-strong);
+  border-color: var(--accent-strong);
 }
 
 /* settings form — compact CC property rows */

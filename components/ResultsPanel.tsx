@@ -80,14 +80,14 @@ export default function ResultsPanel({ findings, onLocate, activeMarkerKind, max
         const worst = worstSeverity(items);
         const sorted = [...items].sort((a, b) => SEV_RANK[b.severity] - SEV_RANK[a.severity]);
         return (
-          <div className="catCard" key={cat}>
+          <div className={`catCard ${open[cat] ? 'open' : ''}`} key={cat}>
             <button className="catHead" onClick={() => setOpen((o) => ({ ...o, [cat]: !o[cat] }))}>
               <span className="num">{i + 1}</span>
               <span className="label">{CATEGORY_LABELS[cat]}</span>
               <span className={`status ${worst}`}>{SEV_LABEL[worst]}</span>
               <span className="catChev">{open[cat] ? '▲' : '▼'}</span>
             </button>
-            {open[cat] && (
+            <div className={`catBodyWrap ${open[cat] ? 'open' : ''}`}>
               <div className="catBody">
                 {sorted.map((x) => (
                   <div className="finding" key={x.id}>
@@ -113,7 +113,7 @@ export default function ResultsPanel({ findings, onLocate, activeMarkerKind, max
                   </div>
                 ))}
               </div>
-            )}
+            </div>
           </div>
         );
       })}

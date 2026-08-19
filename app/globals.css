@@ -753,7 +753,15 @@ input[type="number"] { width: 76px; min-width: 0; }
 .status.error { color: #fff; background: var(--err); }
 .status.info { color: #e8e8ea; background: #55555b; }
 .catChev { color: var(--subtle); font-size: 9px; }
-.catBody { border-top: 1px solid var(--border); }
+/* smooth 0.3s open/close via grid-template-rows 0fr↔1fr */
+.catBodyWrap {
+  display: grid; grid-template-rows: 0fr;
+  transition: grid-template-rows var(--dur) ease;
+}
+.catBodyWrap.open { grid-template-rows: 1fr; }
+.catBodyWrap > .catBody { overflow: hidden; min-height: 0; }
+/* divider between header and body, shown only when open */
+.catCard.open .catHead { border-bottom: 1px solid var(--border); }
 .finding { padding: var(--space-4) var(--space-6); border-bottom: 1px solid var(--border); }
 .finding:last-child { border-bottom: none; }
 .finding .fTitle { display: flex; align-items: center; gap: var(--space-3); font-weight: var(--fw-semibold); font-size: var(--fs-sm); }

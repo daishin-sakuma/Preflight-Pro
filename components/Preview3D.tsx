@@ -172,18 +172,14 @@ function Rig({ autoRotate, command, wMm, hMm, onFacing, onZoomPct, apiRef }: {
   // discrete zoom (dolly) + fit, driven by the on-screen zoom control (eased)
   useEffect(() => {
     if (!apiRef) return;
-    // Snap onto a 10% grid (100% = fit) and move exactly one 10-point step, so
-    // repeated presses read 100 → 110 → 120 … without the drift a multiplicative
-    // factor would cause (110 → 121 → 133 …). dir +1 = zoom in (higher %).
+    // Add/subtract a fixed 10 percentage points of the fit size (100% = fit), so
+    // 114% → 124% → 134% … The offset is additive (constant 10% step, no drift).
+    // dir +1 = zoom in (higher %).
     const dollyStep = (dir: 1 | -1) => {
       const tgt = ctrlTarget();
       const offset = camera.position.clone().sub(tgt);
       const curPct = (fitDist / Math.max(0.001, offset.length())) * 100;
-      const STEP = 10;
-      let target = dir > 0
-        ? (Math.floor(curPct / STEP + 1e-6) + 1) * STEP
-        : (Math.ceil(curPct / STEP - 1e-6) - 1) * STEP;
-      target = Math.max(1, target);
+      const target = Math.max(1, curPct + dir * 10);
       const nl = Math.min(MAX_DIST, Math.max(MIN_DIST, (fitDist * 100) / target));
       animateTo(tgt.clone().add(offset.setLength(nl)), tgt); // zoom toward the current target
     };

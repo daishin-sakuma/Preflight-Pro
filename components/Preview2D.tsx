@@ -161,19 +161,16 @@ const Preview2D = forwardRef<Preview2DHandle, Props>(function Preview2D(
     }
   }, [apply, scheduleHiRes, setSmooth]);
 
-  // Button zoom: snap onto a 10% grid (relative to fit = 100%) and move exactly
-  // one 10-point step, so repeated presses read 100 → 110 → 120 … with no drift
-  // (a multiplicative factor would compound: 110 → 121 → 133 …).
+  // Button zoom: add/subtract a fixed 10 percentage points of the fit size
+  // (relative to fit = 100%), so 114% → 124% → 134% … The offset is additive,
+  // not multiplicative, so the step size stays a constant 10% and never drifts.
   const zoomStep = useCallback((dir: 1 | -1) => {
     const vp = viewportRef.current;
     if (!vp) return;
     const v = view.current;
     const STEP = 10;
     const curPct = (v.z / (v.fitZ || 1)) * 100;
-    let target = dir > 0
-      ? (Math.floor(curPct / STEP + 1e-6) + 1) * STEP
-      : (Math.ceil(curPct / STEP - 1e-6) - 1) * STEP;
-    target = Math.min(1200, Math.max(15, target)); // matches zoomAt's fit*0.15..fit*12
+    const target = Math.min(1200, Math.max(15, curPct + dir * STEP)); // matches zoomAt's fit*0.15..fit*12
     const nz = v.fitZ * (target / 100);
     zoomAt(vp.clientWidth / 2, vp.clientHeight / 2, nz / v.z, true); // eased
   }, [zoomAt]);

@@ -15,6 +15,9 @@ const fmt = (n: number, d = 1) => Number(n.toFixed(d)).toLocaleString('en-US');
 export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
   const out: Finding[] = [];
   const paper = paperSizeMm(s.paperId, s.customWmm, s.customHmm, s.landscape);
+  // design scale: file lengths ×scale = real size; effective dpi ÷scale = real dpi
+  const scale = s.scale && s.scale > 0 ? s.scale : 1;
+  const scaleNote = scale !== 1 ? ` (file measured at 1:${fmt(scale)}, converted to real size)` : '';
 
   // marker helpers: link findings to locatable spots on the 2D preview
   const mk = (kind: NonNullable<Finding['markerKind']>) =>
@@ -29,8 +32,8 @@ export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
     const pg = a.pages[0];
     if (pg) {
       const media = pg.mediaBoxPt;
-      const mediaW = (media[2] - media[0]) * MM_PER_PT;
-      const mediaH = (media[3] - media[1]) * MM_PER_PT;
+      const mediaW = (media[2] - media[0]) * MM_PER_PT * scale;
+      const mediaH = (media[3] - media[1]) * MM_PER_PT * scale;
 
       if (pg.trimBoxPt) {
         const t = pg.trimBoxPt;
@@ -51,6 +54,8 @@ export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
           trimH = a.aiArtboardMm.hMm;
           recovered = true;
         }
+        // apply design scale to get the real-world finished size
+        trimW *= scale; trimH *= scale;
         const srcLabel = recovered ? 'Illustrator artboard' : 'TrimBox';
 
         // trim vs ordered size
@@ -59,9 +64,9 @@ export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
           (Math.abs(trimW - paper.hMm) < 1 && Math.abs(trimH - paper.wMm) < 1);
         out.push(okSize
           ? f('trim-size', 'bleed', 'ok', 'Finished size matches',
-            `${srcLabel} ${fmt(trimW)}×${fmt(trimH)}mm matches the specified size (${paper.wMm}×${paper.hMm}mm).`)
+            `${srcLabel} ${fmt(trimW)}×${fmt(trimH)}mm matches the specified size (${paper.wMm}×${paper.hMm}mm)${scaleNote}.`)
           : f('trim-size', 'bleed', 'error', 'Finished size mismatch',
-            `${srcLabel} is ${fmt(trimW)}×${fmt(trimH)}mm, but the specified size is ${paper.wMm}×${paper.hMm}mm. Rebuild at the correct size, or verify the ordered size.`));
+            `${srcLabel} is ${fmt(trimW)}×${fmt(trimH)}mm, but the specified size is ${paper.wMm}×${paper.hMm}mm${scaleNote}. Rebuild at the correct size, or verify the ordered size.`));
 
         // Large-format caveat: content beyond 5080mm isn't in the PDF page, so
         // bleed/resolution/preview can't fully reflect the artwork.
@@ -87,7 +92,7 @@ export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
         const measurable = (['left', 'right', 'bottom', 'top'] as const)
           .filter((e) => !(ceilEdges as string[]).includes(e))
           .map((e) => edgeBl[e]);
-        const bl = (measurable.length ? Math.min(...measurable) : 0) * MM_PER_PT;
+        const bl = (measurable.length ? Math.min(...measurable) : 0) * MM_PER_PT * scale;
         const caveat = ceilEdges.length
           ? ` The ${ceilEdges.join(' and ')} edge${ceilEdges.length > 1 ? 's' : ''} sit at the PDF size limit, so bleed there can't be verified from the PDF.`
           : '';
@@ -296,16 +301,18 @@ export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
   // =====================================================================
   if (a.kind === 'pdf') {
     if (a.images.length > 0) {
-      const low = a.images.filter((im) => im.effectiveDpi < s.minDpi && im.printWidthMm > 5 && im.printHeightMm > 5);
-      const veryLow = low.filter((im) => im.effectiveDpi < Math.min(200, s.minDpi));
+      // real effective dpi drops by the scale factor when the file is enlarged
+      const realDpi = (im: typeof a.images[number]) => Math.round(im.effectiveDpi / scale);
+      const low = a.images.filter((im) => realDpi(im) < s.minDpi && im.printWidthMm * scale > 5 && im.printHeightMm * scale > 5);
+      const veryLow = low.filter((im) => realDpi(im) < Math.min(200, s.minDpi));
       if (low.length === 0) {
         out.push(f('dpi', 'resolution', 'ok', `All placed images ≥ ${s.minDpi}dpi`,
-          `Verified the effective resolution of ${a.images.length} placed image(s).`));
+          `Verified the effective resolution of ${a.images.length} placed image(s)${scaleNote}.`));
       } else {
-        const worst = low.reduce((x, y) => (x.effectiveDpi < y.effectiveDpi ? x : y));
+        const worst = low.reduce((x, y) => (realDpi(x) < realDpi(y) ? x : y));
         out.push(f('dpi', 'resolution', veryLow.length > 0 ? 'error' : 'warning',
           `${low.length} low-resolution placed image(s)`,
-          `Some images are below ${s.minDpi}dpi effective (lowest ${worst.effectiveDpi}dpi, placed at ${fmt(worst.printWidthMm, 0)}×${fmt(worst.printHeightMm, 0)}mm). They will print coarse. Replace with images ≥ ${s.minDpi}dpi at size, or shrink the placement.`,
+          `Some images are below ${s.minDpi}dpi effective (lowest ${realDpi(worst)}dpi, placed at ${fmt(worst.printWidthMm * scale, 0)}×${fmt(worst.printHeightMm * scale, 0)}mm)${scaleNote}. They will print coarse. Replace with images ≥ ${s.minDpi}dpi at size, or shrink the placement.`,
           { count: low.length, markerKind: mk('lowres'), pages: mkPages('lowres').length ? mkPages('lowres') : [...new Set(low.map((i) => i.page))] }));
       }
     } else {

@@ -36,3 +36,6 @@ export function paperSizeMm(
 
 export const TAC_CHOICES = [250, 260, 280, 300, 310, 320, 350];
 export const DPI_CHOICES = [72, 100, 150, 200, 250, 300, 350, 400, 600];
+// Design scale factor: real size = file size × factor (1 = 1:1). Common reduced
+// scales for large-format work (signage, banners, exhibition booths).
+export const SCALE_CHOICES = [1, 2, 5, 10, 20, 50, 100];

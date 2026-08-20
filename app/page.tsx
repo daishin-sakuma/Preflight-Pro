@@ -375,24 +375,30 @@ export default function Home() {
   // settings the pre-check could infer from the file (size + bleed + dpi)
   const detected = useMemo(() => {
     if (!pre) return null;
+    // real size = file size × design scale (1 for full-size data)
+    const sc = settings.scale && settings.scale > 0 ? settings.scale : 1;
     const d: Partial<Settings> = {};
     if (pre.size) {
-      if (pre.size.presetId) { d.paperId = pre.size.presetId; d.landscape = pre.size.landscape; }
-      else { d.paperId = 'custom'; d.customWmm = pre.size.wMm; d.customHmm = pre.size.hMm; d.landscape = false; }
+      // at reduced scale the file dimensions don't map to a paper preset, so
+      // import the real (scaled-up) size as a custom size.
+      if (sc === 1 && pre.size.presetId) { d.paperId = pre.size.presetId; d.landscape = pre.size.landscape; }
+      else { d.paperId = 'custom'; d.customWmm = Math.round(pre.size.wMm * sc * 10) / 10; d.customHmm = Math.round(pre.size.hMm * sc * 10) / 10; d.landscape = pre.size.wMm > pre.size.hMm; }
     }
-    // measured bleed from a PDF TrimBox (snap to the nearest offered option)
-    if (pre.kind === 'pdf' && pre.hasTrimBox && pre.bleedMm != null && pre.bleedMm > 0.3) {
-      d.bleedMm = [0, 2, 3, 5, 10].reduce((a, b) => Math.abs(b - pre.bleedMm!) < Math.abs(a - pre.bleedMm!) ? b : a);
+    // measured bleed from a PDF TrimBox (real size = file bleed × scale; snap to nearest option)
+    if (pre.kind === 'pdf' && pre.hasTrimBox && pre.bleedMm != null && pre.bleedMm * sc > 0.3) {
+      const realBleed = pre.bleedMm * sc;
+      d.bleedMm = [0, 2, 3, 5, 10].reduce((a, b) => Math.abs(b - realBleed) < Math.abs(a - realBleed) ? b : a);
     }
-    // embedded image resolution → required resolution
-    if (pre.image?.dpi) d.minDpi = pre.image.dpi;
+    // embedded image resolution → required resolution (real dpi = file dpi ÷ scale)
+    if (pre.image?.dpi) d.minDpi = Math.round(pre.image.dpi / sc);
     return Object.keys(d).length ? d : null;
-  }, [pre]);
+  }, [pre, settings.scale]);
 
   const sizeMatchesSettings = useMemo(() => {
     if (!pre?.size) return false;
+    const sc = settings.scale && settings.scale > 0 ? settings.scale : 1;
     const cur = paperSizeMm(settings.paperId, settings.customWmm, settings.customHmm, settings.landscape);
-    return Math.abs(cur.wMm - pre.size.wMm) <= 0.6 && Math.abs(cur.hMm - pre.size.hMm) <= 0.6;
+    return Math.abs(cur.wMm - pre.size.wMm * sc) <= 0.6 && Math.abs(cur.hMm - pre.size.hMm * sc) <= 0.6;
   }, [pre, settings]);
 
   // does every detected field already match the current settings?
@@ -670,14 +676,19 @@ export default function Home() {
                           {pre.size ? (
                             <>
                               <span className="estValue">
-                                {pre.size.presetId
-                                  ? `${PAPER_PRESETS.find((p) => p.id === pre.size!.presetId)?.label ?? ''}${pre.size.landscape ? ' landscape' : ''}`
-                                  : `${pre.size.wMm}×${pre.size.hMm}mm (custom)`}
+                                {settings.scale !== 1
+                                  ? `${Math.round(pre.size.wMm * settings.scale * 10) / 10}×${Math.round(pre.size.hMm * settings.scale * 10) / 10}mm (at 1:${settings.scale})`
+                                  : pre.size.presetId
+                                    ? `${PAPER_PRESETS.find((p) => p.id === pre.size!.presetId)?.label ?? ''}${pre.size.landscape ? ' landscape' : ''}`
+                                    : `${pre.size.wMm}×${pre.size.hMm}mm (custom)`}
                               </span>
                               {sizeMatchesSettings
                                 ? <span className="estOk">✓ Matches settings</span>
                                 : <span className="pcWarn">≠ current settings</span>}
-                              <span className="pcSub">{pre.size.sourceLabel}</span>
+                              <span className="pcSub">
+                                {pre.size.sourceLabel}
+                                {settings.scale !== 1 ? ` · file ${pre.size.wMm}×${pre.size.hMm}mm × ${settings.scale}` : ''}
+                              </span>
                             </>
                           ) : (
                             <span className="pcDim">Could not estimate (no resolution info) — set it in the settings panel</span>

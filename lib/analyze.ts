@@ -77,17 +77,21 @@ export async function analyzeFile(
             rectPt: c.rectPt!,
             label: '3C',
           })),
-        // low-resolution placed images (min-dpi is a setting, so resolved here)
-        ...r.images
-          .filter((im) =>
-            im.rectPt && im.effectiveDpi < settings.minDpi &&
-            im.printWidthMm > 5 && im.printHeightMm > 5)
-          .map((im) => ({
-            kind: 'lowres' as const,
-            page: im.page || 1,
-            rectPt: im.rectPt!,
-            label: `${im.effectiveDpi}dpi`,
-          })),
+        // low-resolution placed images (min-dpi is a setting, so resolved here).
+        // Real dpi drops by the design-scale factor when the file is enlarged.
+        ...(() => {
+          const sc = settings.scale && settings.scale > 0 ? settings.scale : 1;
+          return r.images
+            .filter((im) =>
+              im.rectPt && im.effectiveDpi / sc < settings.minDpi &&
+              im.printWidthMm * sc > 5 && im.printHeightMm * sc > 5)
+            .map((im) => ({
+              kind: 'lowres' as const,
+              page: im.page || 1,
+              rectPt: im.rectPt!,
+              label: `${Math.round(im.effectiveDpi / sc)}dpi`,
+            }));
+        })(),
       ],
     };
     if (name.endsWith('.ai')) {

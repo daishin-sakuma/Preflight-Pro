@@ -167,6 +167,8 @@ export interface Settings {
   minDpi: number;           // e.g. 300 / 350
   safeMarginMm: number;     // text-safe area inside trim (usually 3)
   requireCmyk: boolean;     // treat RGB as error (true) or warning (false)
+  scale: number;            // design scale factor: real size = file size × scale
+                            // (1 = 1:1 full size, 10 = drawn at 1:10, etc.)
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -179,6 +181,7 @@ export const DEFAULT_SETTINGS: Settings = {
   minDpi: 300,
   safeMarginMm: 3,
   requireCmyk: true,
+  scale: 1,
 };
 
 export const MM_PER_PT = 25.4 / 72;

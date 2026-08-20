@@ -4,7 +4,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { Settings } from '@/lib/types';
-import { PAPER_PRESETS, TAC_CHOICES, DPI_CHOICES } from '@/lib/presets';
+import { PAPER_PRESETS, TAC_CHOICES, DPI_CHOICES, SCALE_CHOICES } from '@/lib/presets';
 
 interface Props {
   settings: Settings;
@@ -45,9 +45,12 @@ export default function SettingsForm({ settings, onChange: set }: Props) {
   const [tacCustom, setTacCustom] = useState(false);
   const [dpiCustom, setDpiCustom] = useState(false);
   const [bleedCustom, setBleedCustom] = useState(false);
+  const [scaleCustom, setScaleCustom] = useState(false);
   const showTacCustom = tacCustom || !TAC_CHOICES.includes(settings.tacLimit);
   const showDpiCustom = dpiCustom || !DPI_CHOICES.includes(settings.minDpi);
   const showBleedCustom = bleedCustom || !BLEED_CHOICES.includes(settings.bleedMm);
+  const showScaleCustom = scaleCustom || !SCALE_CHOICES.includes(settings.scale);
+  const fmtScale = (v: number) => (v === 1 ? '1:1 (full size)' : `1:${v}`);
   return (
     <>
       <div className="formRow">
@@ -82,6 +85,27 @@ export default function SettingsForm({ settings, onChange: set }: Props) {
           <option value="l">Landscape</option>
         </select>
       </div>
+      <div className="formRow">
+        <label>Design scale<span className="hint">For reduced-scale large-format data</span></label>
+        <select
+          value={showScaleCustom ? 'custom' : String(settings.scale)}
+          onChange={(e) => {
+            if (e.target.value === 'custom') setScaleCustom(true);
+            else { setScaleCustom(false); set('scale', +e.target.value); }
+          }}>
+          {SCALE_CHOICES.map((v) => <option key={v} value={v}>{fmtScale(v)}</option>)}
+          <option value="custom">Custom…</option>
+        </select>
+      </div>
+      {showScaleCustom && (
+        <div className="formRow">
+          <label>Custom scale (1 : N)</label>
+          <span className="inline">
+            1 :
+            <NumberField value={settings.scale} min={0.01} step={0.1} onCommit={(v) => set('scale', v)} />
+          </span>
+        </div>
+      )}
       <div className="formRow">
         <label>Bleed<span className="hint">Usually 3mm</span></label>
         <select

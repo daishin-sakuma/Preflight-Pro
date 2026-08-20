@@ -70,21 +70,37 @@ export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
             `The finished size (${fmt(trimW)}×${fmt(trimH)}mm) is larger than the PDF maximum page size of 5,080mm (14,400pt), so the embedded PDF page is capped at ${fmt((t[2] - t[0]) * MM_PER_PT)}×${fmt((t[3] - t[1]) * MM_PER_PT)}mm. The true size was read from the Illustrator artboard, but bleed, effective resolution, and the preview may not reflect the full artwork. For accurate large-format preflight, submit at a reduced scale (e.g. 1:2 or 1:10) or as tiles.`));
         }
 
-        // bleed = media (or bleedbox) beyond trim
+        // bleed = media (or bleedbox) beyond trim, measured per edge.
         const outer = pg.bleedBoxPt ?? media;
-        const bl = Math.min(
-          (t[0] - outer[0]), (outer[2] - t[2]),
-          (t[1] - outer[1]), (outer[3] - t[3]),
-        ) * MM_PER_PT;
+        const edgeBl: Record<'left' | 'right' | 'bottom' | 'top', number> = {
+          left: t[0] - outer[0], right: outer[2] - t[2],
+          bottom: t[1] - outer[1], top: outer[3] - t[3],
+        };
+        // An edge pinned at the PDF ceiling can't carry bleed in the PDF (its
+        // artwork lives beyond 14400pt), so exclude it — otherwise its false 0
+        // would drag the 4-side minimum down to "No bleed".
+        const ceilEdges: ('right' | 'top')[] = [];
+        if (clamped) {
+          if (outer[2] >= PDF_MAX_PT - 1) ceilEdges.push('right');
+          if (outer[3] >= PDF_MAX_PT - 1) ceilEdges.push('top');
+        }
+        const measurable = (['left', 'right', 'bottom', 'top'] as const)
+          .filter((e) => !(ceilEdges as string[]).includes(e))
+          .map((e) => edgeBl[e]);
+        const bl = (measurable.length ? Math.min(...measurable) : 0) * MM_PER_PT;
+        const caveat = ceilEdges.length
+          ? ` The ${ceilEdges.join(' and ')} edge${ceilEdges.length > 1 ? 's' : ''} sit at the PDF size limit, so bleed there can't be verified from the PDF.`
+          : '';
         if (bl >= s.bleedMm - 0.3) {
-          out.push(f('bleed', 'bleed', 'ok', 'Bleed present',
-            `About ${fmt(bl)}mm of bleed is present (required: ${s.bleedMm}mm).`));
+          out.push(f('bleed', 'bleed', ceilEdges.length ? 'warning' : 'ok',
+            ceilEdges.length ? 'Bleed present (partly unverifiable)' : 'Bleed present',
+            `About ${fmt(bl)}mm of bleed is present (required: ${s.bleedMm}mm).${caveat}`));
         } else if (bl > 0.3) {
           out.push(f('bleed', 'bleed', 'warning', 'Insufficient bleed',
-            `Only about ${fmt(bl)}mm of bleed (required: ${s.bleedMm}mm). Paper-white edges may appear when trimmed.`));
+            `Only about ${fmt(bl)}mm of bleed (required: ${s.bleedMm}mm). Paper-white edges may appear when trimmed.${caveat}`));
         } else {
           out.push(f('bleed', 'bleed', 'error', 'No bleed',
-            `There is no bleed outside the trim line. Trimming drift will expose paper white. Extend the artwork ${s.bleedMm}mm beyond the trim on all sides.`));
+            `There is no bleed outside the trim line. Trimming drift will expose paper white. Extend the artwork ${s.bleedMm}mm beyond the trim on all sides.${caveat}`));
         }
       } else {
         // No TrimBox: compare media to ordered size

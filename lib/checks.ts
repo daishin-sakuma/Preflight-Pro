@@ -286,7 +286,7 @@ export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
       out.push(f('overprint', 'ink', 'ok', 'No overprint',
         'No dangerous overprint settings were detected (K100 text is commonly auto-overprinted by the shop).'));
     }
-  } else if (a.imageInfo) {
+  } else if (a.imageInfo && a.tac.length > 0) {
     const worstTac = a.tac.reduce((mx, t) => Math.max(mx, t.maxTac), 0);
     const anyOver = a.tac.some((t) => t.overLimitRatio > 0.0005);
     out.push(anyOver
@@ -294,6 +294,9 @@ export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
         `Dark areas that may exceed ${s.tacLimit}% total ink after CMYK conversion were detected (est. max ~${worstTac}%). Check with the “Ink” overlay in the preview.`)
       : f('tac-raster', 'ink', 'ok', `Total ink within ${s.tacLimit}% (est.)`,
         `Total ink after CMYK conversion is expected to stay within the limit (est. max ~${worstTac}%).`));
+  } else if (a.imageInfo && a.previewUnavailable) {
+    out.push(f('tac-raster', 'ink', 'info', 'Ink coverage not evaluated',
+      'The pixel-based total-ink (TAC) estimate needs a decoded preview, which was unavailable for this image (see “Other”).'));
   }
 
   // =====================================================================
@@ -376,6 +379,10 @@ export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
         v >= 1.3 ? 'A version supported by common print workflows.'
           : 'A very old PDF version. Re-exporting is recommended.'));
     }
+  }
+
+  if (a.previewUnavailable) {
+    out.push(f('preview-unavailable', 'other', 'warning', 'Preview unavailable', a.previewUnavailable));
   }
 
   for (const n of a.notes) {

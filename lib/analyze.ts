@@ -109,21 +109,46 @@ export async function analyzeFile(
   onProgress?.('Analyzing image…');
   const info = kind === 'png' ? analyzePng(buf) : analyzeJpeg(buf);
 
-  // decode for preview + pixel TAC
-  const bitmap = await createImageBitmap(new Blob([buf.buffer as ArrayBuffer]));
-  const maxEdge = 2400;
-  const sc = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.round(bitmap.width * sc);
-  canvas.height = Math.round(bitmap.height * sc);
-  const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
-  ctx.fillStyle = '#fff';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  bitmap.close();
+  // Browsers can only decode RGB/grayscale images, and canvas/decoder size is
+  // capped (~16k px/edge, and a total-area limit). CMYK JPEGs and huge images
+  // therefore can't be previewed — but the metadata checks below still run.
+  const MAX_EDGE = 16384;
+  const isCmyk = info.colorSpace === 'cmyk';
+  const tooLarge = info.width > MAX_EDGE || info.height > MAX_EDGE
+    || info.width * info.height > 100_000_000; // > ~100 MP
+
+  // decode for preview + pixel TAC (skipped / caught for unsupported images)
+  let canvas: HTMLCanvasElement | null = null;
+  if (!isCmyk && !tooLarge && info.width > 0 && info.height > 0) {
+    try {
+      const bitmap = await createImageBitmap(new Blob([buf.buffer as ArrayBuffer]));
+      const maxEdge = 2400;
+      const sc = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(bitmap.width * sc);
+      c.height = Math.round(bitmap.height * sc);
+      const ctx = c.getContext('2d', { willReadFrequently: true })!;
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(bitmap, 0, 0, c.width, c.height);
+      bitmap.close();
+      canvas = c;
+    } catch {
+      canvas = null; // fall through to metadata-only
+    }
+  }
+
+  let previewUnavailable: string | undefined;
+  if (!canvas) {
+    const reasons: string[] = [];
+    if (isCmyk) reasons.push('it is a CMYK JPEG (browsers can only decode RGB/grayscale images)');
+    if (tooLarge) reasons.push(`it is very large (${info.width.toLocaleString()}×${info.height.toLocaleString()}px, ~${Math.round(info.width * info.height / 1e6)} megapixels — beyond the browser's decode limit)`);
+    if (!reasons.length) reasons.push('the browser could not decode it');
+    previewUnavailable = `The visual preview and ink-coverage (TAC) estimate were skipped because ${reasons.join(', and ')}. Size, resolution and color checks below were still run from the file's metadata.`;
+  }
 
   onProgress?.('Estimating ink coverage…');
-  const tac = [analyzeTac(canvas, 1, settings.tacLimit)];
+  const tac = canvas ? [analyzeTac(canvas, 1, settings.tacLimit)] : [];
 
   // page geometry: treat the image as one page at the ordered size + bleed
   const paper = paperSizeMm(settings.paperId, settings.customWmm, settings.customHmm, settings.landscape);
@@ -149,8 +174,9 @@ export async function analyzeFile(
     images: [],
     tac,
     imageInfo: info,
-    previews: [canvas],
-    renderScale: canvas.width / wPt,
+    previews: canvas ? [canvas] : [],
+    renderScale: canvas ? canvas.width / wPt : 1,
+    previewUnavailable,
     findings: [],
     notes: [],
     markers: [],

@@ -147,6 +147,9 @@ export interface AnalysisResult {
   // true finished size from the Illustrator artboard (XMP), used when the PDF
   // page was clamped to the 14400pt (5080mm) ceiling for large-format files
   aiArtboardMm?: { wMm: number; hMm: number };
+  // set when the raster preview / pixel analysis couldn't run (CMYK JPEG, or an
+  // image too large for the browser to decode); metadata checks still ran
+  previewUnavailable?: string;
   findings: Finding[];
   notes: string[];                 // non-blocking analysis notes
   markers: Marker[];               // all locatable problem spots (2D preview)

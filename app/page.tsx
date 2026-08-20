@@ -846,8 +846,10 @@ export default function Home() {
           <div className="previewCol" ref={previewColRef}>
           <div className="card previewCard">
             <div className="previewTabs">
-              <button className={tab === '3d' ? 'on' : ''} onClick={() => setTab('3d')}>3D preview</button>
-              <button className={tab === '2d' ? 'on' : ''} onClick={() => setTab('2d')}>2D proof</button>
+              {!result.previewUnavailable && <>
+                <button className={tab === '3d' ? 'on' : ''} onClick={() => setTab('3d')}>3D preview</button>
+                <button className={tab === '2d' ? 'on' : ''} onClick={() => setTab('2d')}>2D proof</button>
+              </>}
               <div className="tabInfo">
                 <span className="name" title={result.fileName}>{result.fileName}</span>
                 <span className="meta">
@@ -860,6 +862,17 @@ export default function Home() {
               </div>
             </div>
             <div className="previewStage">
+              {result.previewUnavailable ? (
+                <div className="previewMissing">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"
+                    strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    <circle cx="9" cy="9" r="2" /><path d="m21 15-3.5-3.5L11 18" /><path d="m2 2 20 20" />
+                  </svg>
+                  <div className="pmTitle">Preview unavailable</div>
+                  <p>{result.previewUnavailable}</p>
+                </div>
+              ) : (<>
               {tab === '3d' && paper3d && (
                 <Preview3D
                   front={paper3d.canvas}
@@ -911,6 +924,7 @@ export default function Home() {
                   </div>
                 </>
               )}
+              </>)}
             </div>
             <div className="previewCtrl">
               {tab === '3d' && (

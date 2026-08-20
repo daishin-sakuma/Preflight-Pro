@@ -172,15 +172,24 @@ function Rig({ autoRotate, command, wMm, hMm, onFacing, onZoomPct, apiRef }: {
   // discrete zoom (dolly) + fit, driven by the on-screen zoom control (eased)
   useEffect(() => {
     if (!apiRef) return;
-    const dolly = (factor: number) => {
+    // Snap onto a 10% grid (100% = fit) and move exactly one 10-point step, so
+    // repeated presses read 100 → 110 → 120 … without the drift a multiplicative
+    // factor would cause (110 → 121 → 133 …). dir +1 = zoom in (higher %).
+    const dollyStep = (dir: 1 | -1) => {
       const tgt = ctrlTarget();
       const offset = camera.position.clone().sub(tgt);
-      const nl = Math.min(MAX_DIST, Math.max(MIN_DIST, offset.length() * factor));
+      const curPct = (fitDist / Math.max(0.001, offset.length())) * 100;
+      const STEP = 10;
+      let target = dir > 0
+        ? (Math.floor(curPct / STEP + 1e-6) + 1) * STEP
+        : (Math.ceil(curPct / STEP - 1e-6) - 1) * STEP;
+      target = Math.max(1, target);
+      const nl = Math.min(MAX_DIST, Math.max(MIN_DIST, (fitDist * 100) / target));
       animateTo(tgt.clone().add(offset.setLength(nl)), tgt); // zoom toward the current target
     };
     apiRef.current = {
-      zoomIn: () => dolly(1 / 1.1),
-      zoomOut: () => dolly(1.1),
+      zoomIn: () => dollyStep(1),
+      zoomOut: () => dollyStep(-1),
       // Fit: keep the currently-viewed page, square it up straight-on, recenter
       reset: () => animateTo(new THREE.Vector3(0, 0, camera.position.z >= 0 ? fitDist : -fitDist), ORIGIN.clone()),
     };

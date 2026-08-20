@@ -161,10 +161,21 @@ const Preview2D = forwardRef<Preview2DHandle, Props>(function Preview2D(
     }
   }, [apply, scheduleHiRes, setSmooth]);
 
-  const zoomButtons = useCallback((factor: number) => {
+  // Button zoom: snap onto a 10% grid (relative to fit = 100%) and move exactly
+  // one 10-point step, so repeated presses read 100 → 110 → 120 … with no drift
+  // (a multiplicative factor would compound: 110 → 121 → 133 …).
+  const zoomStep = useCallback((dir: 1 | -1) => {
     const vp = viewportRef.current;
     if (!vp) return;
-    zoomAt(vp.clientWidth / 2, vp.clientHeight / 2, factor, true); // eased
+    const v = view.current;
+    const STEP = 10;
+    const curPct = (v.z / (v.fitZ || 1)) * 100;
+    let target = dir > 0
+      ? (Math.floor(curPct / STEP + 1e-6) + 1) * STEP
+      : (Math.ceil(curPct / STEP - 1e-6) - 1) * STEP;
+    target = Math.min(1200, Math.max(15, target)); // matches zoomAt's fit*0.15..fit*12
+    const nz = v.fitZ * (target / 100);
+    zoomAt(vp.clientWidth / 2, vp.clientHeight / 2, nz / v.z, true); // eased
   }, [zoomAt]);
 
   const fitAndRevert = useCallback(() => {
@@ -176,10 +187,10 @@ const Preview2D = forwardRef<Preview2DHandle, Props>(function Preview2D(
 
   // imperative zoom controls for keyboard shortcuts driven from the page
   useImperativeHandle(ref, () => ({
-    zoomIn: () => zoomButtons(1.1),
-    zoomOut: () => zoomButtons(1 / 1.1),
+    zoomIn: () => zoomStep(1),
+    zoomOut: () => zoomStep(-1),
     fit: () => fitAndRevert(),
-  }), [zoomButtons, fitAndRevert]);
+  }), [zoomStep, fitAndRevert]);
 
   // wheel: native non-passive listener (React's onWheel can't preventDefault)
   useEffect(() => {
@@ -278,9 +289,9 @@ const Preview2D = forwardRef<Preview2DHandle, Props>(function Preview2D(
         />
       </div>
       <div className="zoomCtl" onPointerDown={(e) => e.stopPropagation()}>
-        <button title="Zoom out" onClick={() => zoomButtons(1 / 1.3)}>−</button>
+        <button title="Zoom out" onClick={() => zoomStep(-1)}>−</button>
         <span className="zoomPct">{pct}%</span>
-        <button title="Zoom in" onClick={() => zoomButtons(1.3)}>＋</button>
+        <button title="Zoom in" onClick={() => zoomStep(1)}>＋</button>
         <button title="Fit to view" onClick={fitAndRevert}>Fit</button>
       </div>
     </div>

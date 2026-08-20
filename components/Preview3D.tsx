@@ -179,8 +179,8 @@ function Rig({ autoRotate, command, wMm, hMm, onFacing, onZoomPct, apiRef }: {
       animateTo(tgt.clone().add(offset.setLength(nl)), tgt); // zoom toward the current target
     };
     apiRef.current = {
-      zoomIn: () => dolly(1 / 1.3),
-      zoomOut: () => dolly(1.3),
+      zoomIn: () => dolly(1 / 1.1),
+      zoomOut: () => dolly(1.1),
       // Fit: keep the currently-viewed page, square it up straight-on, recenter
       reset: () => animateTo(new THREE.Vector3(0, 0, camera.position.z >= 0 ? fitDist : -fitDist), ORIGIN.clone()),
     };

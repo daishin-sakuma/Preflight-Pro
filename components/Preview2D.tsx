@@ -176,8 +176,8 @@ const Preview2D = forwardRef<Preview2DHandle, Props>(function Preview2D(
 
   // imperative zoom controls for keyboard shortcuts driven from the page
   useImperativeHandle(ref, () => ({
-    zoomIn: () => zoomButtons(1.3),
-    zoomOut: () => zoomButtons(1 / 1.3),
+    zoomIn: () => zoomButtons(1.1),
+    zoomOut: () => zoomButtons(1 / 1.1),
     fit: () => fitAndRevert(),
   }), [zoomButtons, fitAndRevert]);
 

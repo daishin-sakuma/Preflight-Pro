@@ -109,42 +109,65 @@ export async function analyzeFile(
   onProgress?.('Analyzing image…');
   const info = kind === 'png' ? analyzePng(buf) : analyzeJpeg(buf);
 
-  // Browsers can only decode RGB/grayscale images, and canvas/decoder size is
-  // capped (~16k px/edge, and a total-area limit). CMYK JPEGs and huge images
-  // therefore can't be previewed — but the metadata checks below still run.
-  const MAX_EDGE = 16384;
+  // Decode a small preview, pushed as close to the real browser limits as we can:
+  //  - CMYK JPEGs can't be decoded by any browser (format limit) → skip.
+  //  - Everything else is attempted via resize-on-decode (createImageBitmap with
+  //    resizeWidth/Height). For JPEG this uses DCT down-scaling, so even ~500 MP
+  //    files decode straight to a small bitmap without hitting GPU-texture /
+  //    canvas-area limits or exhausting memory.
+  //  - PNG must fully decompress to RGBA, so it's bounded by memory (~1 GB RGBA
+  //    ≈ 260 MP); above that we skip to avoid crashing the tab.
   const isCmyk = info.colorSpace === 'cmyk';
-  const tooLarge = info.width > MAX_EDGE || info.height > MAX_EDGE
-    || info.width * info.height > 100_000_000; // > ~100 MP
+  const area = (info.width || 0) * (info.height || 0);
+  const pngTooLarge = kind === 'png' && area > 260_000_000;
 
-  // decode for preview + pixel TAC (skipped / caught for unsupported images)
-  let canvas: HTMLCanvasElement | null = null;
-  if (!isCmyk && !tooLarge && info.width > 0 && info.height > 0) {
+  const decodePreview = async (): Promise<HTMLCanvasElement | null> => {
+    const maxEdge = 2400;
+    const w = info.width || 0, h = info.height || 0;
+    const long = Math.max(w, h);
+    const sc = long > 0 ? Math.min(1, maxEdge / long) : 1;
+    const rw = w > 0 ? Math.max(1, Math.round(w * sc)) : 0;
+    const rh = h > 0 ? Math.max(1, Math.round(h * sc)) : 0;
+    const blob = new Blob([buf.buffer as ArrayBuffer]);
+    let bitmap: ImageBitmap | null = null;
     try {
-      const bitmap = await createImageBitmap(new Blob([buf.buffer as ArrayBuffer]));
-      const maxEdge = 2400;
-      const sc = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
+      bitmap = (rw && rh && (rw < w || rh < h))
+        ? await createImageBitmap(blob, { resizeWidth: rw, resizeHeight: rh, resizeQuality: 'high' })
+        : await createImageBitmap(blob);
+    } catch {
+      // browser rejected the resize options — try a plain full-size decode
+      try { bitmap = await createImageBitmap(blob); } catch { return null; }
+    }
+    try {
+      const tw = rw || bitmap.width, th = rh || bitmap.height;
       const c = document.createElement('canvas');
-      c.width = Math.round(bitmap.width * sc);
-      c.height = Math.round(bitmap.height * sc);
+      c.width = tw; c.height = th;
       const ctx = c.getContext('2d', { willReadFrequently: true })!;
       ctx.fillStyle = '#fff';
-      ctx.fillRect(0, 0, c.width, c.height);
-      ctx.drawImage(bitmap, 0, 0, c.width, c.height);
+      ctx.fillRect(0, 0, tw, th);
+      ctx.drawImage(bitmap, 0, 0, tw, th); // downscales if the bitmap is full-size
       bitmap.close();
-      canvas = c;
+      return c;
     } catch {
-      canvas = null; // fall through to metadata-only
+      try { bitmap.close(); } catch { /* noop */ }
+      return null;
     }
-  }
+  };
+
+  let canvas: HTMLCanvasElement | null = null;
+  if (!isCmyk && !pngTooLarge) canvas = await decodePreview();
 
   let previewUnavailable: string | undefined;
   if (!canvas) {
-    const reasons: string[] = [];
-    if (isCmyk) reasons.push('it is a CMYK JPEG (browsers can only decode RGB/grayscale images)');
-    if (tooLarge) reasons.push(`it is very large (${info.width.toLocaleString()}×${info.height.toLocaleString()}px, ~${Math.round(info.width * info.height / 1e6)} megapixels — beyond the browser's decode limit)`);
-    if (!reasons.length) reasons.push('the browser could not decode it');
-    previewUnavailable = `The visual preview and ink-coverage (TAC) estimate were skipped because ${reasons.join(', and ')}. Size, resolution and color checks below were still run from the file's metadata.`;
+    const px = info.width && info.height
+      ? `${info.width.toLocaleString()}×${info.height.toLocaleString()}px, ~${Math.round(area / 1e6)} megapixels`
+      : '';
+    let reason: string;
+    if (isCmyk) reason = 'it is a CMYK JPEG (browsers can only decode RGB/grayscale images)';
+    else if (pngTooLarge) reason = `it is a very large PNG (${px}) — beyond the memory a browser can use to decompress a PNG`;
+    else if (px) reason = `the browser could not decode it at this size (${px}) — beyond this browser/GPU's limit`;
+    else reason = 'the browser could not decode it';
+    previewUnavailable = `The visual preview and ink-coverage (TAC) estimate were skipped because ${reason}. Size, resolution and color checks below were still run from the file's metadata.`;
   }
 
   onProgress?.('Estimating ink coverage…');

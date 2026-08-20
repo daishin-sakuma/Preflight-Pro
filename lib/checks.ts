@@ -34,17 +34,41 @@ export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
 
       if (pg.trimBoxPt) {
         const t = pg.trimBoxPt;
-        const trimW = (t[2] - t[0]) * MM_PER_PT;
-        const trimH = (t[3] - t[1]) * MM_PER_PT;
+        let trimW = (t[2] - t[0]) * MM_PER_PT;
+        let trimH = (t[3] - t[1]) * MM_PER_PT;
+
+        // Large-format recovery: a PDF page cannot exceed 14400pt (5080mm), so
+        // Illustrator clamps the page boxes and records the true artboard size
+        // in XMP. When a box hits that ceiling and the artboard is larger, the
+        // clamped TrimBox is not the real finished size — use the artboard.
+        const PDF_MAX_PT = 14400;
+        const clamped = ([pg.mediaBoxPt, t, pg.bleedBoxPt, pg.cropBoxPt, pg.artBoxPt] as (number[] | undefined)[])
+          .some((b) => !!b && (b[2] >= PDF_MAX_PT - 1 || b[3] >= PDF_MAX_PT - 1));
+        let recovered = false;
+        if (clamped && a.aiArtboardMm &&
+            (a.aiArtboardMm.wMm > trimW + 1 || a.aiArtboardMm.hMm > trimH + 1)) {
+          trimW = a.aiArtboardMm.wMm;
+          trimH = a.aiArtboardMm.hMm;
+          recovered = true;
+        }
+        const srcLabel = recovered ? 'Illustrator artboard' : 'TrimBox';
+
         // trim vs ordered size
         const okSize =
           (Math.abs(trimW - paper.wMm) < 1 && Math.abs(trimH - paper.hMm) < 1) ||
           (Math.abs(trimW - paper.hMm) < 1 && Math.abs(trimH - paper.wMm) < 1);
         out.push(okSize
           ? f('trim-size', 'bleed', 'ok', 'Finished size matches',
-            `TrimBox ${fmt(trimW)}×${fmt(trimH)}mm matches the specified size (${paper.wMm}×${paper.hMm}mm).`)
+            `${srcLabel} ${fmt(trimW)}×${fmt(trimH)}mm matches the specified size (${paper.wMm}×${paper.hMm}mm).`)
           : f('trim-size', 'bleed', 'error', 'Finished size mismatch',
-            `TrimBox is ${fmt(trimW)}×${fmt(trimH)}mm, but the specified size is ${paper.wMm}×${paper.hMm}mm. Rebuild at the correct size, or verify the ordered size.`));
+            `${srcLabel} is ${fmt(trimW)}×${fmt(trimH)}mm, but the specified size is ${paper.wMm}×${paper.hMm}mm. Rebuild at the correct size, or verify the ordered size.`));
+
+        // Large-format caveat: content beyond 5080mm isn't in the PDF page, so
+        // bleed/resolution/preview can't fully reflect the artwork.
+        if (recovered) {
+          out.push(f('oversize-pdf', 'bleed', 'warning', 'Exceeds PDF max page size (5,080mm)',
+            `The finished size (${fmt(trimW)}×${fmt(trimH)}mm) is larger than the PDF maximum page size of 5,080mm (14,400pt), so the embedded PDF page is capped at ${fmt((t[2] - t[0]) * MM_PER_PT)}×${fmt((t[3] - t[1]) * MM_PER_PT)}mm. The true size was read from the Illustrator artboard, but bleed, effective resolution, and the preview may not reflect the full artwork. For accurate large-format preflight, submit at a reduced scale (e.g. 1:2 or 1:10) or as tiles.`));
+        }
 
         // bleed = media (or bleedbox) beyond trim
         const outer = pg.bleedBoxPt ?? media;

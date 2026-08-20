@@ -102,6 +102,24 @@ export function precheckFile(bytes: Uint8Array, bleedMm = 3): PrecheckInfo | nul
       const trim = raw.boxes.trim[0];
       const media = raw.boxes.media[0];
 
+      let size = sizeFromBoxes(trim, media, bleedMm);
+      // Large-format recovery: PDF pages are capped at 14400pt (5080mm); when a
+      // box hits that ceiling, Illustrator's true artboard size (from XMP) is the
+      // real finished size, so prefer it over the clamped box.
+      const PDF_MAX_PT = 14400;
+      const clamped = ([trim, media, raw.boxes.bleed[0], raw.boxes.crop[0], raw.boxes.art[0]] as (number[] | undefined)[])
+        .some((b) => !!b && (b[2] >= PDF_MAX_PT - 1 || b[3] >= PDF_MAX_PT - 1));
+      if (clamped && raw.aiArtboard &&
+          (size == null || raw.aiArtboard.wMm > size.wMm + 1 || raw.aiArtboard.hMm > size.hMm + 1)) {
+        const w = r1(raw.aiArtboard.wMm), h = r1(raw.aiArtboard.hMm);
+        const m = matchPreset(w, h);
+        size = {
+          wMm: w, hMm: h,
+          presetId: m?.presetId ?? null, landscape: m?.landscape ?? (w > h),
+          sourceLabel: 'From Illustrator artboard (PDF page capped at 5,080mm)',
+        };
+      }
+
       // measured bleed: min distance from trim to the outer box on any side
       let measuredBleed: number | null = null;
       const outer = raw.boxes.bleed[0] ?? media;
@@ -123,7 +141,7 @@ export function precheckFile(bytes: Uint8Array, bleedMm = 3): PrecheckInfo | nul
 
       return {
         kind: 'pdf',
-        size: sizeFromBoxes(trim, media, bleedMm),
+        size,
         pageCount,
         hasTrimBox: !!trim,
         bleedMm: measuredBleed,

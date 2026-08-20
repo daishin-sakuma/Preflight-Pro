@@ -41,6 +41,7 @@ export async function analyzeFile(
       tac: r.tac,
       previews: r.previews,
       renderScale: r.renderScale,
+      aiArtboardMm: r.raw.aiArtboard ?? undefined,
       findings: [],
       notes: r.notes,
       renderPage: r.renderPage,

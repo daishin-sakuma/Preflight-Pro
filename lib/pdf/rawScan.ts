@@ -27,6 +27,35 @@ export interface RawScanResult {
     media: number[][]; trim: number[][]; bleed: number[][];
     crop: number[][]; art: number[][];
   };
+  // Illustrator records the true (largest) artboard size in XMP, even when it
+  // exceeds the PDF page ceiling of 14400pt (5080mm) and the PDF boxes get
+  // clamped. Recovered in mm; null if not an Illustrator file / not present.
+  aiArtboard: { wMm: number; hMm: number } | null;
+}
+
+// XMP length units -> mm
+const XMP_UNIT_MM: Record<string, number> = {
+  Millimeters: 1, Centimeters: 10, Inches: 25.4,
+  Points: 25.4 / 72, Picas: 25.4 / 6, Pixels: 25.4 / 72,
+};
+
+// Read xmpTPg:MaxPageSize (the largest artboard) from the plaintext XMP packet.
+// Handles both the attribute form (stDim:w="…") and the nested-element form.
+function parseAiArtboard(raw: string): { wMm: number; hMm: number } | null {
+  const el = raw.match(/<xmpTPg:MaxPageSize\b[\s\S]*?(?:\/>|<\/xmpTPg:MaxPageSize>)/);
+  if (!el) return null;
+  const block = el[0];
+  const num = (name: string): number | null => {
+    const a = block.match(new RegExp(`stDim:${name}\\s*=\\s*"([\\d.]+)"`));
+    if (a) return +a[1];
+    const e = block.match(new RegExp(`<stDim:${name}>\\s*([\\d.]+)\\s*</stDim:${name}>`));
+    return e ? +e[1] : null;
+  };
+  const w = num('w'), h = num('h');
+  if (w == null || h == null || !(w > 0) || !(h > 0)) return null;
+  const um = block.match(/stDim:unit\s*=\s*"([^"]+)"/) ?? block.match(/<stDim:unit>\s*([^<\s]+)\s*<\/stDim:unit>/);
+  const k = XMP_UNIT_MM[um?.[1] ?? 'Points'] ?? XMP_UNIT_MM.Points;
+  return { wMm: w * k, hMm: h * k };
 }
 
 function printableRatio(s: string): number {
@@ -370,5 +399,6 @@ export function rawScanPdf(bytes: Uint8Array): RawScanResult {
       crop: parseBoxes(corpus, 'CropBox'),
       art: parseBoxes(corpus, 'ArtBox'),
     },
+    aiArtboard: parseAiArtboard(raw),
   };
 }

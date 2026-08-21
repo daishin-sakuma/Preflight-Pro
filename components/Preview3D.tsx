@@ -20,7 +20,8 @@ interface Props {
   command: ViewCommand;
   stageColor?: string;   // pasteboard colour (theme-dependent)
   onFacing?: (facing: 'front' | 'back') => void; // which face is toward the camera
-  fitRef?: React.MutableRefObject<(() => void) | null>; // lets the page trigger Fit (⌘0)
+  // lets the page drive zoom in/out + fit (shared keyboard shortcuts with 2D)
+  controlRef?: React.MutableRefObject<Zoom3DApi | null>;
 }
 
 function Paper({ front, back, wMm, hMm }: Pick<Props, 'front' | 'back' | 'wMm' | 'hMm'>) {
@@ -207,14 +208,11 @@ function Rig({ autoRotate, command, wMm, hMm, onFacing, onZoomPct, apiRef }: {
   );
 }
 
-export default function Preview3D({ front, back, wMm, hMm, autoRotate, command, stageColor = '#454547', onFacing, fitRef }: Props) {
+export default function Preview3D({ front, back, wMm, hMm, autoRotate, command, stageColor = '#454547', onFacing, controlRef }: Props) {
   const [pct, setPct] = useState(100);
-  const api = useRef<Zoom3DApi | null>(null);
-  useEffect(() => {
-    if (!fitRef) return;
-    fitRef.current = () => api.current?.reset();
-    return () => { if (fitRef) fitRef.current = null; };
-  }, [fitRef]);
+  const internalApi = useRef<Zoom3DApi | null>(null);
+  // the page drives zoom/fit through the same ref the on-screen buttons use
+  const api = controlRef ?? internalApi;
   return (
     <div className="preview3dWrap">
       <Canvas

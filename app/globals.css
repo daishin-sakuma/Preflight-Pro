@@ -663,6 +663,12 @@ input[type="number"] { width: 76px; min-width: 0; }
   font-size: var(--fs-2xs); font-weight: var(--fw-bold); letter-spacing: var(--tracking-caps);
   text-transform: uppercase; color: var(--muted); margin-bottom: var(--space-2);
 }
+/* "works in both views" badge next to a shortcut group title */
+.scGroupTitle .scBoth {
+  margin-left: var(--space-2); padding: 1px 6px; border-radius: var(--radius-sm);
+  background: var(--accent-dim); color: var(--accent-strong);
+  font-weight: var(--fw-semibold); letter-spacing: 0; text-transform: none;
+}
 .scRow {
   display: flex; align-items: center; gap: var(--space-5);
   font-size: var(--fs-sm); color: var(--text);

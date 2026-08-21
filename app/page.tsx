@@ -10,7 +10,7 @@ import ResultsPanel, { worstSeverity } from '@/components/ResultsPanel';
 import Preview2D, { type Preview2DHandle } from '@/components/Preview2D';
 import { MARKER_STYLE, renderOverlays } from '@/lib/overlay';
 import SettingsForm from '@/components/SettingsForm';
-import type { ViewCommand } from '@/components/Preview3D';
+import type { ViewCommand, Zoom3DApi } from '@/components/Preview3D';
 
 const Preview3D = dynamic(() => import('@/components/Preview3D'), { ssr: false });
 
@@ -141,7 +141,7 @@ export default function Home() {
   const inputRef = useRef<HTMLInputElement>(null);
   const disposeRef = useRef<(() => void) | null>(null); // releases the previous PDF's retained doc
   const preview2dRef = useRef<Preview2DHandle>(null);
-  const preview3dFitRef = useRef<(() => void) | null>(null);
+  const preview3dApiRef = useRef<Zoom3DApi | null>(null);
   const previewColRef = useRef<HTMLDivElement>(null);
   const [panelMaxH, setPanelMaxH] = useState<number | undefined>(undefined);
   const [scMounted, setScMounted] = useState(false); // shortcuts modal in DOM
@@ -214,35 +214,37 @@ export default function Home() {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
       if (t && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName)) return;
+      // active-view zoom/fit helpers, shared by both the 2D and 3D previews
+      const zoom = (dir: 1 | -1) => {
+        if (tab === '2d') (dir > 0 ? preview2dRef.current?.zoomIn() : preview2dRef.current?.zoomOut());
+        else (dir > 0 ? preview3dApiRef.current?.zoomIn() : preview3dApiRef.current?.zoomOut());
+      };
+      const fitView = () => (tab === '2d' ? preview2dRef.current?.fit() : preview3dApiRef.current?.reset());
       // ⌘0 / Ctrl+0 → fit the active preview (overrides browser reset-zoom)
       if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key === '0') {
         e.preventDefault();
-        if (tab === '2d') preview2dRef.current?.fit();
-        else preview3dFitRef.current?.();
+        fitView();
         return;
       }
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       switch (e.key) {
-        // page turning
-        case 'ArrowLeft': e.preventDefault(); goPage(-1); break;
-        case 'ArrowRight': e.preventDefault(); goPage(1); break;
-        // view switching
-        case '2': setTab('2d'); break;
-        case '3': setTab('3d'); break;
-        // overlay toggles
-        case 'g': case 'G': setShowGuides((v) => !v); break;
-        case 'd': case 'D': setShowDims((v) => !v); break;
-        case 'i': case 'I': setShowTac((v) => !v); break;
-        // 3D view controls
-        case ' ': if (tab === '3d') { e.preventDefault(); setAutoRotate((v) => !v); } break;
-        case 'f': case 'F': if (tab === '3d') setCommand((c) => ({ cmd: 'front', n: c.n + 1 })); break;
-        case 'b': case 'B': if (tab === '3d') setCommand((c) => ({ cmd: 'back', n: c.n + 1 })); break;
-        case 'r': case 'R': if (tab === '3d') setCommand((c) => ({ cmd: 'reset', n: c.n + 1 })); break;
-        // 2D zoom controls
-        case '+': case '=': if (tab === '2d') { e.preventDefault(); preview2dRef.current?.zoomIn(); } break;
-        case '-': case '_': if (tab === '2d') { e.preventDefault(); preview2dRef.current?.zoomOut(); } break;
-        case '0': if (tab === '2d') preview2dRef.current?.fit(); else preview3dFitRef.current?.(); break;
-        // help / dismiss
+        // ---- both views ----
+        case 'ArrowLeft': e.preventDefault(); goPage(-1); break;   // previous page
+        case 'ArrowRight': e.preventDefault(); goPage(1); break;   // next page
+        case '2': setTab('2d'); break;                             // 2D proof
+        case '3': setTab('3d'); break;                             // 3D preview
+        case '+': case '=': e.preventDefault(); zoom(1); break;    // zoom in
+        case '-': case '_': e.preventDefault(); zoom(-1); break;   // zoom out
+        case '0': fitView(); break;                                // fit
+        case 'g': case 'G': setShowGuides((v) => !v); break;       // guides
+        case 'd': case 'D': setShowDims((v) => !v); break;         // dimensions
+        case 'b': case 'B': setShowBleed((v) => !v); break;        // bleed
+        case 'i': case 'I': setShowTac((v) => !v); break;          // ink
+        // ---- 3D only ----
+        case ' ': if (tab === '3d') { e.preventDefault(); setAutoRotate((v) => !v); } break; // spin
+        case 'f': case 'F': if (tab === '3d') setCommand((c) => ({ cmd: facing3d === 'back' ? 'front' : 'back', n: c.n + 1 })); break; // flip front/back
+        case 'r': case 'R': if (tab === '3d') setCommand((c) => ({ cmd: 'reset', n: c.n + 1 })); break; // reset view
+        // ---- help / dismiss ----
         case '?': e.preventDefault(); scMounted ? closeShortcuts() : openShortcuts(); break;
         case 'Escape':
           if (scMounted) closeShortcuts();
@@ -253,7 +255,7 @@ export default function Home() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [phase, tab, goPage, scMounted, openShortcuts, closeShortcuts]);
+  }, [phase, tab, facing3d, goPage, scMounted, openShortcuts, closeShortcuts]);
 
   // Locate a finding's spots: jump to the 2D view (and its first page).
   const onLocate = useCallback((f: Finding) => {
@@ -564,8 +566,8 @@ export default function Home() {
               settings: finished size, bleed, ink limit and required resolution. Preflight Pro can estimate
               the finished size and bleed from the file itself, and your settings are remembered for next
               time. Third, press Check to run the full inspection and review the result. You can rotate
-              the 3D paper preview, flip between front and back, zoom the 2D proof, and toggle guides,
-              dimensions and an ink-coverage overlay. Because everything is computed in your browser, the
+              the 3D paper preview, flip between front and back, zoom and fit either preview, and toggle
+              guides, dimensions, bleed and an ink-coverage overlay. Because everything is computed in your browser, the
               report appears in seconds and you can re-run the <a href="#checks">checks</a> with different
               settings as many times as you like.
             </p>
@@ -889,7 +891,7 @@ export default function Home() {
                   command={command}
                   stageColor={theme === 'light' ? '#b9bcc2' : '#454547'}
                   onFacing={setFacing3d}
-                  fitRef={preview3dFitRef}
+                  controlRef={preview3dApiRef}
                 />
               )}
               {tab === '2d' && (
@@ -1037,26 +1039,26 @@ export default function Home() {
                 <div className="scRow"><span><kbd>←</kbd><kbd>→</kbd></span> Previous / next page</div>
                 <div className="scRow"><span><kbd>2</kbd></span> 2D proof</div>
                 <div className="scRow"><span><kbd>3</kbd></span> 3D preview</div>
+                <div className="scRow"><span><kbd>?</kbd></span> Toggle this help</div>
               </div>
               <div className="scGroup">
-                <div className="scGroupTitle">Overlays</div>
+                <div className="scGroupTitle">Zoom &amp; fit <span className="scBoth">2D · 3D</span></div>
+                <div className="scRow"><span><kbd>+</kbd><kbd>−</kbd></span> Zoom in / out</div>
+                <div className="scRow"><span><kbd>0</kbd><kbd>⌘0</kbd></span> Fit to view</div>
+              </div>
+              <div className="scGroup">
+                <div className="scGroupTitle">Overlays <span className="scBoth">2D · 3D</span></div>
                 <div className="scRow"><span><kbd>G</kbd></span> Toggle guides</div>
                 <div className="scRow"><span><kbd>D</kbd></span> Toggle dimensions</div>
+                <div className="scRow"><span><kbd>B</kbd></span> Toggle bleed</div>
                 <div className="scRow"><span><kbd>I</kbd></span> Toggle ink overlay</div>
                 <div className="scRow"><span><kbd>Esc</kbd></span> Clear “locate” markers</div>
               </div>
               <div className="scGroup">
                 <div className="scGroupTitle">3D preview</div>
                 <div className="scRow"><span><kbd>Space</kbd></span> Start / stop spin</div>
-                <div className="scRow"><span><kbd>F</kbd></span> View front</div>
-                <div className="scRow"><span><kbd>B</kbd></span> View back</div>
+                <div className="scRow"><span><kbd>F</kbd></span> Flip front / back</div>
                 <div className="scRow"><span><kbd>R</kbd></span> Reset view</div>
-              </div>
-              <div className="scGroup">
-                <div className="scGroupTitle">2D proof</div>
-                <div className="scRow"><span><kbd>+</kbd><kbd>−</kbd></span> Zoom in / out</div>
-                <div className="scRow"><span><kbd>0</kbd><kbd>⌘0</kbd></span> Fit to view</div>
-                <div className="scRow"><span><kbd>?</kbd></span> Toggle this help</div>
               </div>
             </div>
           </div>

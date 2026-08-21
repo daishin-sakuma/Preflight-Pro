@@ -19,6 +19,15 @@ export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
   const scale = s.scale && s.scale > 0 ? s.scale : 1;
   const scaleNote = scale !== 1 ? ` (file measured at 1:${fmt(scale)}, converted to real size)` : '';
 
+  // Aspect-ratio comparison (orientation-independent: compares long:short ratios).
+  // Returns the two ratios when they differ beyond ~1%, else null.
+  const orderR = Math.max(paper.wMm, paper.hMm) / Math.min(paper.wMm, paper.hMm);
+  const aspectMismatch = (fw: number, fh: number): { fileR: number; orderR: number } | null => {
+    if (!(fw > 0 && fh > 0)) return null;
+    const fileR = Math.max(fw, fh) / Math.min(fw, fh);
+    return Math.abs(fileR - orderR) / orderR > 0.01 ? { fileR, orderR } : null;
+  };
+
   // marker helpers: link findings to locatable spots on the 2D preview
   const mk = (kind: NonNullable<Finding['markerKind']>) =>
     a.markers?.some((m) => m.kind === kind) ? kind : undefined;
@@ -67,6 +76,12 @@ export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
             `${srcLabel} ${fmt(trimW)}×${fmt(trimH)}mm matches the specified size (${paper.wMm}×${paper.hMm}mm)${scaleNote}.`)
           : f('trim-size', 'bleed', 'error', 'Finished size mismatch',
             `${srcLabel} is ${fmt(trimW)}×${fmt(trimH)}mm, but the specified size is ${paper.wMm}×${paper.hMm}mm${scaleNote}. Rebuild at the correct size, or verify the ordered size.`));
+
+        const am = aspectMismatch(trimW, trimH);
+        if (am) {
+          out.push(f('aspect', 'bleed', 'error', 'Aspect ratio mismatch',
+            `The file's proportions (${fmt(trimW)}×${fmt(trimH)}mm, ${fmt(am.fileR)}:1) don't match the specified size (${paper.wMm}×${paper.hMm}mm, ${fmt(am.orderR)}:1). The artwork can't fill the finished size without distortion (stretching or cropping). Rebuild at the correct proportions.`));
+        }
 
         // Large-format caveat: content beyond 5080mm isn't in the PDF page, so
         // bleed/resolution/preview can't fully reflect the artwork.
@@ -138,8 +153,16 @@ export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
       }
     }
   } else if (a.imageInfo) {
-    // raster submission: does pixel size cover trim + bleed at min dpi?
     const info = a.imageInfo;
+
+    // aspect-ratio check (the image will be stretched/cropped to the ordered size)
+    const am = aspectMismatch(info.width, info.height);
+    if (am) {
+      out.push(f('aspect', 'bleed', 'error', 'Aspect ratio mismatch',
+        `The image proportions (${info.width}×${info.height}px, ${fmt(am.fileR)}:1) don't match the specified size (${paper.wMm}×${paper.hMm}mm, ${fmt(am.orderR)}:1). Placing it at the finished size would stretch or crop it. Re-export at the correct proportions (${fmt(orderR)}:1).`));
+    }
+
+    // raster submission: does pixel size cover trim + bleed at min dpi?
     const needW = paper.wMm + s.bleedMm * 2;
     const needH = paper.hMm + s.bleedMm * 2;
     const dpiW = info.width / (needW / 25.4);

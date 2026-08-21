@@ -118,10 +118,15 @@ function compositedFullPage(
   ctx.drawImage(src, 0, 0, out.width, out.height);
   renderOverlays(out, { result, settings, pageIdx, ...opts, scaleOverride: result.renderScale * k });
   const vb = geom.viewBoxPt ?? geom.mediaBoxPt;
+  const wMm = (vb[2] - vb[0]) * MM_PER_PT;
   return {
     canvas: out,
-    wMm: (vb[2] - vb[0]) * MM_PER_PT,
-    hMm: (vb[3] - vb[1]) * MM_PER_PT,
+    wMm,
+    // Derive height from the texture's own aspect ratio (not the ordered page
+    // height): for a raster whose aspect ≠ the ordered size, the artwork keeps
+    // the file's true proportions so the texture — and the dimension/bleed
+    // overlays baked into it — aren't stretched onto the 3D paper mesh.
+    hMm: wMm * (out.height / out.width),
   };
 }
 

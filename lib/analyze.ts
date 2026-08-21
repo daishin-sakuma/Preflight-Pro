@@ -154,11 +154,10 @@ export async function analyzeFile(
     }
   };
 
-  let canvas: HTMLCanvasElement | null = null;
-  if (!isCmyk && !pngTooLarge) canvas = await decodePreview();
+  const rawImg = (!isCmyk && !pngTooLarge) ? await decodePreview() : null;
 
   let previewUnavailable: string | undefined;
-  if (!canvas) {
+  if (!rawImg) {
     const px = info.width && info.height
       ? `${info.width.toLocaleString()}×${info.height.toLocaleString()}px, ~${Math.round(area / 1e6)} megapixels`
       : '';
@@ -170,10 +169,7 @@ export async function analyzeFile(
     previewUnavailable = `The visual preview and ink-coverage (TAC) estimate were skipped because ${reason}. Size, resolution and color checks below were still run from the file's metadata.`;
   }
 
-  onProgress?.('Estimating ink coverage…');
-  const tac = canvas ? [analyzeTac(canvas, 1, settings.tacLimit)] : [];
-
-  // page geometry: treat the image as one page at the ordered size + bleed
+  // page geometry: one page at the ordered size + bleed (reflects size/orientation)
   const paper = paperSizeMm(settings.paperId, settings.customWmm, settings.customHmm, settings.landscape);
   const wPt = (paper.wMm + settings.bleedMm * 2) * (72 / 25.4);
   const hPt = (paper.hMm + settings.bleedMm * 2) * (72 / 25.4);
@@ -181,6 +177,32 @@ export async function analyzeFile(
     settings.bleedMm * (72 / 25.4), settings.bleedMm * (72 / 25.4),
     wPt - settings.bleedMm * (72 / 25.4), hPt - settings.bleedMm * (72 / 25.4),
   ];
+
+  // Compose the artwork onto an ordered-size (bleed) canvas, preserving the
+  // image's own aspect (contain, centered on white). This makes the preview
+  // reflect the chosen size/orientation while never stretching the artwork; a
+  // letterbox appears when the image aspect differs from the order (flagged by
+  // the aspect-ratio check).
+  let canvas: HTMLCanvasElement | null = null;
+  if (rawImg) {
+    const LONG = 2400;
+    const pageAspect = wPt / hPt;
+    const cw = pageAspect >= 1 ? LONG : Math.max(1, Math.round(LONG * pageAspect));
+    const ch = pageAspect >= 1 ? Math.max(1, Math.round(LONG / pageAspect)) : LONG;
+    const page = document.createElement('canvas');
+    page.width = cw; page.height = ch;
+    const pctx = page.getContext('2d', { willReadFrequently: true })!;
+    pctx.fillStyle = '#fff';
+    pctx.fillRect(0, 0, cw, ch);
+    const sc = Math.min(cw / rawImg.width, ch / rawImg.height); // contain
+    const dw = rawImg.width * sc, dh = rawImg.height * sc;
+    pctx.imageSmoothingEnabled = true; pctx.imageSmoothingQuality = 'high';
+    pctx.drawImage(rawImg, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
+    canvas = page;
+  }
+
+  onProgress?.('Estimating ink coverage…');
+  const tac = canvas ? [analyzeTac(canvas, 1, settings.tacLimit)] : [];
 
   const result: AnalysisResult = {
     kind: 'image',

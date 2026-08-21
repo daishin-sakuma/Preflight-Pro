@@ -380,17 +380,37 @@ export default function Home() {
   const [pre, setPre] = useState<PrecheckInfo | null>(null);
   const [estimating, setEstimating] = useState(false);
 
+  // Finished-size estimate for the confirm screen. When the file carries no size
+  // metadata (e.g. an image with no embedded DPI), fall back to pixel count ÷ the
+  // configured required-resolution (minDpi) so the size is still derivable and
+  // "Use detected settings" stays usable.
+  const estSize = useMemo(() => {
+    if (!pre) return null;
+    if (pre.size) return { ...pre.size, fromDpi: false };
+    if (pre.image?.width && pre.image?.height && settings.minDpi > 0) {
+      const dpi = settings.minDpi;
+      const wMm = Math.round((pre.image.width / dpi) * 25.4 * 10) / 10;
+      const hMm = Math.round((pre.image.height / dpi) * 25.4 * 10) / 10;
+      return {
+        wMm, hMm, presetId: null as string | null, landscape: wMm > hMm,
+        sourceLabel: `From ${pre.image.width.toLocaleString()}×${pre.image.height.toLocaleString()}px at the set ${dpi}dpi`,
+        fromDpi: true,
+      };
+    }
+    return null;
+  }, [pre, settings.minDpi]);
+
   // settings the pre-check could infer from the file (size + bleed + dpi)
   const detected = useMemo(() => {
     if (!pre) return null;
     // real size = file size × design scale (1 for full-size data)
     const sc = settings.scale && settings.scale > 0 ? settings.scale : 1;
     const d: Partial<Settings> = {};
-    if (pre.size) {
+    if (estSize) {
       // at reduced scale the file dimensions don't map to a paper preset, so
       // import the real (scaled-up) size as a custom size.
-      if (sc === 1 && pre.size.presetId) { d.paperId = pre.size.presetId; d.landscape = pre.size.landscape; }
-      else { d.paperId = 'custom'; d.customWmm = Math.round(pre.size.wMm * sc * 10) / 10; d.customHmm = Math.round(pre.size.hMm * sc * 10) / 10; d.landscape = pre.size.wMm > pre.size.hMm; }
+      if (sc === 1 && estSize.presetId) { d.paperId = estSize.presetId; d.landscape = estSize.landscape; }
+      else { d.paperId = 'custom'; d.customWmm = Math.round(estSize.wMm * sc * 10) / 10; d.customHmm = Math.round(estSize.hMm * sc * 10) / 10; d.landscape = estSize.wMm > estSize.hMm; }
     }
     // measured bleed from a PDF TrimBox (real size = file bleed × scale; snap to nearest option)
     if (pre.kind === 'pdf' && pre.hasTrimBox && pre.bleedMm != null && pre.bleedMm * sc > 0.3) {
@@ -400,14 +420,14 @@ export default function Home() {
     // embedded image resolution → required resolution (real dpi = file dpi ÷ scale)
     if (pre.image?.dpi) d.minDpi = Math.round(pre.image.dpi / sc);
     return Object.keys(d).length ? d : null;
-  }, [pre, settings.scale]);
+  }, [pre, estSize, settings.scale]);
 
   const sizeMatchesSettings = useMemo(() => {
-    if (!pre?.size) return false;
+    if (!estSize) return false;
     const sc = settings.scale && settings.scale > 0 ? settings.scale : 1;
     const cur = paperSizeMm(settings.paperId, settings.customWmm, settings.customHmm, settings.landscape);
-    return Math.abs(cur.wMm - pre.size.wMm * sc) <= 0.6 && Math.abs(cur.hMm - pre.size.hMm * sc) <= 0.6;
-  }, [pre, settings]);
+    return Math.abs(cur.wMm - estSize.wMm * sc) <= 0.6 && Math.abs(cur.hMm - estSize.hMm * sc) <= 0.6;
+  }, [estSize, settings]);
 
   // does every detected field already match the current settings?
   const detectedMatchesSettings = useMemo(() => {
@@ -681,25 +701,26 @@ export default function Home() {
                       <div className="pcGrid">
                         <span className="pcLabel">Est. finished size</span>
                         <span className="pcValue">
-                          {pre.size ? (
+                          {estSize ? (
                             <>
                               <span className="estValue">
                                 {settings.scale !== 1
-                                  ? `${Math.round(pre.size.wMm * settings.scale * 10) / 10}×${Math.round(pre.size.hMm * settings.scale * 10) / 10}mm (at 1:${settings.scale})`
-                                  : pre.size.presetId
-                                    ? `${PAPER_PRESETS.find((p) => p.id === pre.size!.presetId)?.label ?? ''}${pre.size.landscape ? ' landscape' : ''}`
-                                    : `${pre.size.wMm}×${pre.size.hMm}mm (custom)`}
+                                  ? `${Math.round(estSize.wMm * settings.scale * 10) / 10}×${Math.round(estSize.hMm * settings.scale * 10) / 10}mm (at 1:${settings.scale})`
+                                  : estSize.presetId
+                                    ? `${PAPER_PRESETS.find((p) => p.id === estSize.presetId)?.label ?? ''}${estSize.landscape ? ' landscape' : ''}`
+                                    : `${estSize.wMm}×${estSize.hMm}mm (custom)`}
                               </span>
                               {sizeMatchesSettings
                                 ? <span className="estOk">✓ Matches settings</span>
                                 : <span className="pcWarn">≠ current settings</span>}
                               <span className="pcSub">
-                                {pre.size.sourceLabel}
-                                {settings.scale !== 1 ? ` · file ${pre.size.wMm}×${pre.size.hMm}mm × ${settings.scale}` : ''}
+                                {estSize.sourceLabel}
+                                {estSize.fromDpi ? ' — adjust the required resolution to change this' : ''}
+                                {settings.scale !== 1 ? ` · file ${estSize.wMm}×${estSize.hMm}mm × ${settings.scale}` : ''}
                               </span>
                             </>
                           ) : (
-                            <span className="pcDim">Could not estimate (no resolution info) — set it in the settings panel</span>
+                            <span className="pcDim">Could not estimate (no size or resolution info) — set it in the settings panel</span>
                           )}
                         </span>
 

@@ -104,7 +104,7 @@ const ssFactor = (w: number, h: number) =>
 
 function compositedFullPage(
   result: AnalysisResult, settings: Settings, pageIdx: number,
-  opts: { showTac: boolean; showGuides: boolean; showDims: boolean; markerKind: MarkerKind | null },
+  opts: { showTac: boolean; showGuides: boolean; showDims: boolean; showBleed: boolean; markerKind: MarkerKind | null },
 ): { canvas: HTMLCanvasElement; wMm: number; hMm: number } | null {
   const src = result.previews[pageIdx];
   const geom = result.pages[pageIdx];
@@ -164,6 +164,7 @@ export default function Home() {
   const [showTac, setShowTac] = useState(false);
   const [showGuides, setShowGuides] = useState(true);
   const [showDims, setShowDims] = useState(true);
+  const [showBleed, setShowBleed] = useState(true);
   const [markerKind, setMarkerKind] = useState<MarkerKind | null>(null);
   const [autoRotate, setAutoRotate] = useState(false);
   const [command, setCommand] = useState<ViewCommand>({ cmd: 'reset', n: 0 });
@@ -429,10 +430,10 @@ export default function Home() {
   }, [result]);
 
   // overlays shown in 3D too: full page (bleed included) with composited guides
-  const overlaysOn = showGuides || showDims || showTac || !!markerKind;
+  const overlaysOn = showGuides || showDims || showBleed || showTac || !!markerKind;
   const overlayOpts = useMemo(
-    () => ({ showTac, showGuides, showDims, markerKind }),
-    [showTac, showGuides, showDims, markerKind],
+    () => ({ showTac, showGuides, showDims, showBleed, markerKind }),
+    [showTac, showGuides, showDims, showBleed, markerKind],
   );
   const paper3d = useMemo(() => {
     if (!result) return null;
@@ -900,6 +901,7 @@ export default function Home() {
                   showTac={showTac}
                   showGuides={showGuides}
                   showDims={showDims}
+                  showBleed={showBleed}
                   markerKind={markerKind}
                   finished={!overlaysOn}
                 />
@@ -960,6 +962,10 @@ export default function Home() {
                 onClick={() => setShowDims((v) => !v)}>
                 Dimensions
               </button>
+              <button className={`btn ghost small ${showBleed ? 'active' : ''}`}
+                onClick={() => setShowBleed((v) => !v)}>
+                Bleed
+              </button>
               <button className={`btn ghost small ${showTac ? 'active' : ''}`}
                 onClick={() => setShowTac((v) => !v)}>
                 Ink (over {settings.tacLimit}%)
@@ -987,7 +993,7 @@ export default function Home() {
             </div>
             {(
               <div className="legend">
-                <span className="key"><span className="swatch" style={{ background: 'rgba(40,110,240,.35)' }} />Bleed (trim-off) area</span>
+                {showBleed && <span className="key"><span className="swatch" style={{ background: 'rgba(40,110,240,.35)' }} />Bleed (trim-off) area</span>}
                 <span className="key"><span className="swatch" style={{ border: '2px dashed #e11d48', background: 'transparent' }} />Trim line (cut position)</span>
                 <span className="key"><span className="swatch" style={{ border: '2px dashed #0d9488', background: 'transparent' }} />Safe area ({settings.safeMarginMm}mm inside)</span>
                 <span className="key"><span className="swatch" style={{ border: '2px solid #dc2626', background: 'transparent' }} />Low-resolution image</span>

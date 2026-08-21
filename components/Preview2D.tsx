@@ -29,6 +29,7 @@ interface Props {
   showTac: boolean;
   showGuides: boolean;
   showDims: boolean;               // dimension annotations (寸法表示)
+  showBleed: boolean;              // bleed-zone shading + bleed dimensions
   markerKind: MarkerKind | null;   // active problem-spot overlay
   finished: boolean;               // all overlays off → show the trimmed finished piece
 }
@@ -53,7 +54,7 @@ function cropToTrim(src: HTMLCanvasElement, geom: PageGeom, scale: number): HTML
 }
 
 const Preview2D = forwardRef<Preview2DHandle, Props>(function Preview2D(
-  { result, settings, pageIdx, showTac, showGuides, showDims, markerKind, finished }, ref,
+  { result, settings, pageIdx, showTac, showGuides, showDims, showBleed, markerKind, finished }, ref,
 ) {
   const baseRef = useRef<HTMLCanvasElement>(null);
   const overRef = useRef<HTMLCanvasElement>(null);
@@ -252,9 +253,9 @@ const Preview2D = forwardRef<Preview2DHandle, Props>(function Preview2D(
 
     over.getContext('2d')!.clearRect(0, 0, over.width, over.height);
     if (!finished) {
-      renderOverlays(over, { result, settings, pageIdx, showTac, showGuides, showDims, markerKind, scaleOverride: scale });
+      renderOverlays(over, { result, settings, pageIdx, showTac, showGuides, showDims, showBleed, markerKind, scaleOverride: scale });
     }
-  }, [result, settings, pageIdx, showTac, showGuides, showDims, markerKind, finished, loadedScale, fit, apply, setSmooth]);
+  }, [result, settings, pageIdx, showTac, showGuides, showDims, showBleed, markerKind, finished, loadedScale, fit, apply, setSmooth]);
 
 
   return (

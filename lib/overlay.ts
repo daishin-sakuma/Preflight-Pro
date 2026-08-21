@@ -28,6 +28,7 @@ export interface OverlayArgs {
   showTac: boolean;
   showGuides: boolean;
   showDims: boolean;
+  showBleed: boolean;       // bleed-zone shading + bleed dimension chips
   markerKind: MarkerKind | null;
   scaleOverride?: number;   // px-per-pt of the target canvas (for hi-res re-renders)
 }
@@ -35,7 +36,7 @@ export interface OverlayArgs {
 // Draws overlays onto `over` (does NOT clear it — the 2D view clears its
 // transparent overlay first; the 3D compositor draws on top of the artwork).
 export function renderOverlays(over: HTMLCanvasElement, args: OverlayArgs): void {
-  const { result, settings, pageIdx, showTac, showGuides, showDims, markerKind } = args;
+  const { result, settings, pageIdx, showTac, showGuides, showDims, showBleed, markerKind } = args;
   const ctx = over.getContext('2d')!;
     const geom = result.pages[pageIdx];
     if (!geom) return;
@@ -81,18 +82,21 @@ export function renderOverlays(over: HTMLCanvasElement, args: OverlayArgs): void
       }
     }
 
+    // bleed zone shading (outside trim) — its own toggle
+    if (showBleed && trim) {
+      const t = rectPx(trim);
+      ctx.save();
+      ctx.fillStyle = 'rgba(40, 110, 240, 0.18)';
+      ctx.beginPath();
+      ctx.rect(0, 0, over.width, over.height);
+      ctx.rect(t.x, t.y, t.w, t.h);
+      ctx.fill('evenodd');
+      ctx.restore();
+    }
+
     if (showGuides) {
       if (trim) {
         const t = rectPx(trim);
-        // bleed zone shading (outside trim)
-        ctx.save();
-        ctx.fillStyle = 'rgba(40, 110, 240, 0.18)';
-        ctx.beginPath();
-        ctx.rect(0, 0, over.width, over.height);
-        ctx.rect(t.x, t.y, t.w, t.h);
-        ctx.fill('evenodd');
-        ctx.restore();
-
         // trim line (finished cut)
         ctx.strokeStyle = '#e11d48';
         ctx.setLineDash([8 * ui, 5 * ui]);
@@ -130,7 +134,7 @@ export function renderOverlays(over: HTMLCanvasElement, args: OverlayArgs): void
     }
 
     // ---- dimension annotations (寸法表示) ----
-    if (showDims) {
+    if (showDims || showBleed) {
       const mm = (pt: number) => {
         const v = pt * (25.4 / 72);
         return (Math.round(v * 10) / 10).toLocaleString('ja-JP');
@@ -168,39 +172,45 @@ export function renderOverlays(over: HTMLCanvasElement, args: OverlayArgs): void
 
       if (trim) {
         const t = rectPx(trim);
-        const trimWpt = trim[2] - trim[0];
-        const trimHpt = trim[3] - trim[1];
-        // trim width (top, inside the trim)
-        const wy = t.y + 26 * ui;
-        dimLine(t.x, wy, t.x + t.w, wy, TRIM_C);
-        chip(t.x + t.w / 2, wy, `Trim ${mm(trimWpt)}mm`, TRIM_C);
-        // trim height (left, inside the trim)
-        const hx = t.x + 26 * ui;
-        dimLine(hx, t.y, hx, t.y + t.h, TRIM_C);
-        chip(hx + 6 * ui, t.y + t.h / 2, `${mm(trimHpt)}mm`, TRIM_C);
+        if (showDims) {
+          const trimWpt = trim[2] - trim[0];
+          const trimHpt = trim[3] - trim[1];
+          // trim width (top, inside the trim)
+          const wy = t.y + 26 * ui;
+          dimLine(t.x, wy, t.x + t.w, wy, TRIM_C);
+          chip(t.x + t.w / 2, wy, `Trim ${mm(trimWpt)}mm`, TRIM_C);
+          // trim height (left, inside the trim)
+          const hx = t.x + 26 * ui;
+          dimLine(hx, t.y, hx, t.y + t.h, TRIM_C);
+          chip(hx + 6 * ui, t.y + t.h / 2, `${mm(trimHpt)}mm`, TRIM_C);
 
-        // bleed widths (actual measured distances trim -> page edge)
-        const bTopPt = vb[3] - trim[3];
-        const bLeftPt = trim[0] - vb[0];
-        if (bTopPt * (25.4 / 72) > 0.3) {
-          const bx = t.x + t.w - 60 * ui;
-          dimLine(bx, 0, bx, t.y, BLEED_C);
-          chip(bx, t.y + 16 * ui, `Bleed ${mm(bTopPt)}mm`, BLEED_C);
-        }
-        if (bLeftPt * (25.4 / 72) > 0.3) {
-          const by = t.y + t.h - 60 * ui;
-          dimLine(0, by, t.x, by, BLEED_C);
-          chip(t.x + 40 * ui, by, `${mm(bLeftPt)}mm`, BLEED_C);
+          // safe-area label (on the safe-area line)
+          const inset = settings.safeMarginMm * PT_PER_MM * s;
+          chip(t.x + t.w / 2, t.y + inset + 14 * ui, `Safe area (${settings.safeMarginMm}mm inside trim)`, SAFE_C);
         }
 
-        // safe-area label (on the safe-area line)
-        const inset = settings.safeMarginMm * PT_PER_MM * s;
-        chip(t.x + t.w / 2, t.y + inset + 14 * ui, `Safe area (${settings.safeMarginMm}mm inside trim)`, SAFE_C);
+        // bleed widths (actual measured distances trim -> page edge) — own toggle
+        if (showBleed) {
+          const bTopPt = vb[3] - trim[3];
+          const bLeftPt = trim[0] - vb[0];
+          if (bTopPt * (25.4 / 72) > 0.3) {
+            const bx = t.x + t.w - 60 * ui;
+            dimLine(bx, 0, bx, t.y, BLEED_C);
+            chip(bx, t.y + 16 * ui, `Bleed ${mm(bTopPt)}mm`, BLEED_C);
+          }
+          if (bLeftPt * (25.4 / 72) > 0.3) {
+            const by = t.y + t.h - 60 * ui;
+            dimLine(0, by, t.x, by, BLEED_C);
+            chip(t.x + 40 * ui, by, `${mm(bLeftPt)}mm`, BLEED_C);
+          }
+        }
       }
 
       // full data size (bottom center)
-      chip(over.width / 2, over.height - 16 * ui,
-        `Data size ${mm(vb[2] - vb[0])}×${mm(vb[3] - vb[1])}mm${trim ? ' (incl. bleed)' : ''}`, DATA_C);
+      if (showDims) {
+        chip(over.width / 2, over.height - 16 * ui,
+          `Data size ${mm(vb[2] - vb[0])}×${mm(vb[3] - vb[1])}mm${trim ? ' (incl. bleed)' : ''}`, DATA_C);
+      }
     }
 
     // ---- problem-spot markers: callout chips with leader arrows (該当箇所) ----

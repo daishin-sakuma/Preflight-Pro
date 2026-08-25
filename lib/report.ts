@@ -1,12 +1,10 @@
-// Client-side check report, downloadable as PDF or PNG.
+// Client-side check report (PDF).
 //
-// One layout routine drives two painters:
-//   - PdfPainter  → a REAL text PDF: Latin via Standard-14 Helvetica, Japanese
-//     via runtime-subsetted embedded Zen Kaku Gothic New (CID/Identity-H, see
-//     lib/fontEmbed.ts) — all text selectable / searchable / sharp at any
-//     zoom. If the font can't load, non-Latin lines fall back to lossless
-//     inline images; page previews are images either way.
-//   - CanvasPainter → 2× supersampled A4 canvases (~300dpi) stitched to a PNG.
+// A REAL text PDF: Latin via Standard-14 Helvetica, Japanese via
+// runtime-subsetted embedded Zen Kaku Gothic New (CID/Identity-H, see
+// lib/fontEmbed.ts) — all text selectable / searchable / sharp at any zoom.
+// If the font can't load, non-Latin lines fall back to lossless inline
+// images; page previews are images either way.
 //
 // The report is a document to hand to a print shop, so it always renders as a
 // fixed light document independent of the app theme.
@@ -37,9 +35,8 @@ async function fetchFont(url: string): Promise<ArrayBuffer | null> {
   return buf;
 }
 
-// logical layout grid (mapped to A4); the canvas painter renders it at 2×
+// logical layout grid (mapped onto the A4 page)
 const W = 1240, H = 1754, M = 96;
-const SS = 2;
 const A4_W_PT = 595.28, A4_H_PT = 841.89;
 
 const INK = '#1f232b', MUTED = '#5b6270', SUBTLE = '#8a909c', LINE = '#dcdfe5', WELL = '#f5f6f8';
@@ -72,82 +69,9 @@ const canvasFlateRgb = (c: HTMLCanvasElement): Uint8Array => {
   return pako.deflate(rgb);
 };
 
-// ---- painter abstraction ----------------------------------------------------
+// ---- PDF painter --------------------------------------------------------------
 
-interface Painter {
-  newPage(): void;
-  setFont(size: number, bold: boolean): void;
-  measure(t: string): number;
-  text(t: string, x: number, yBase: number, color: string): void;
-  fillRect(x: number, yTop: number, w: number, h: number, color: string, radius?: number): void;
-  strokeRect(x: number, yTop: number, w: number, h: number, color: string, lw: number, radius?: number): void;
-  line(x1: number, y1: number, x2: number, y2: number, color: string, lw: number): void;
-  image(src: HTMLCanvasElement, x: number, yTop: number, w: number, h: number, border?: string): void;
-  footers(make: (i: number, total: number) => { left: string; right: string }): void;
-}
-
-class CanvasPainter implements Painter {
-  pages: HTMLCanvasElement[] = [];
-  private ctx: CanvasRenderingContext2D = null!;
-  private size = 21;
-  private bold = false;
-
-  newPage() {
-    const c = document.createElement('canvas');
-    c.width = W * SS; c.height = H * SS;
-    this.ctx = c.getContext('2d')!;
-    this.ctx.scale(SS, SS); // draw in logical coordinates, render at 2×
-    this.ctx.fillStyle = '#ffffff';
-    this.ctx.fillRect(0, 0, W, H);
-    this.pages.push(c);
-  }
-  setFont(size: number, bold: boolean) { this.size = size; this.bold = bold; }
-  measure(t: string) { return measure(t, this.size, this.bold); }
-  text(t: string, x: number, yBase: number, color: string) {
-    this.ctx.font = fontCss(this.size, this.bold);
-    this.ctx.fillStyle = color;
-    this.ctx.fillText(t, x, yBase);
-  }
-  fillRect(x: number, yTop: number, w: number, h: number, color: string, radius = 0) {
-    this.ctx.fillStyle = color;
-    this.ctx.beginPath();
-    this.ctx.roundRect(x, yTop, w, h, radius);
-    this.ctx.fill();
-  }
-  strokeRect(x: number, yTop: number, w: number, h: number, color: string, lw: number, radius = 0) {
-    this.ctx.strokeStyle = color;
-    this.ctx.lineWidth = lw;
-    this.ctx.beginPath();
-    this.ctx.roundRect(x, yTop, w, h, radius);
-    this.ctx.stroke();
-  }
-  line(x1: number, y1: number, x2: number, y2: number, color: string, lw: number) {
-    this.ctx.strokeStyle = color;
-    this.ctx.lineWidth = lw;
-    this.ctx.beginPath();
-    this.ctx.moveTo(x1, y1);
-    this.ctx.lineTo(x2, y2);
-    this.ctx.stroke();
-  }
-  image(src: HTMLCanvasElement, x: number, yTop: number, w: number, h: number, border?: string) {
-    this.ctx.imageSmoothingEnabled = true;
-    this.ctx.imageSmoothingQuality = 'high';
-    this.ctx.drawImage(src, x, yTop, w, h);
-    if (border) this.strokeRect(x, yTop, w, h, border, 1);
-  }
-  footers(make: (i: number, total: number) => { left: string; right: string }) {
-    this.pages.forEach((c, i) => {
-      const fx = c.getContext('2d')!; // same context — the SS transform persists
-      const { left, right } = make(i, this.pages.length);
-      fx.font = fontCss(19, false);
-      fx.fillStyle = SUBTLE;
-      fx.fillText(left, M, H - 48);
-      fx.fillText(right, W - M - measure(right, 19, false), H - 48);
-    });
-  }
-}
-
-class PdfPainter implements Painter {
+class PdfPainter {
   doc = new PdfDoc(A4_W_PT, A4_H_PT, W, H);
   private size = 21;
   private bold = false;
@@ -239,7 +163,7 @@ class PdfPainter implements Painter {
 
 // ---- shared layout ------------------------------------------------------------
 
-function wrap(p: Painter, text: string, maxW: number): string[] {
+function wrap(p: PdfPainter, text: string, maxW: number): string[] {
   const words = text.split(/\s+/);
   const lines: string[] = [];
   let line = '';
@@ -288,7 +212,7 @@ function previewComposite(result: AnalysisResult, settings: Settings, pageIdx: n
   return capped;
 }
 
-function paintReport(p: Painter, result: AnalysisResult, settings: Settings): void {
+function paintReport(p: PdfPainter, result: AnalysisResult, settings: Settings): void {
   let y = 0;
   const CW = W - M * 2;
   const newPage = () => { p.newPage(); y = M; };
@@ -453,29 +377,4 @@ export async function downloadReportPdf(result: AnalysisResult, settings: Settin
   p.finishFonts();
   const pdf = p.doc.build();
   saveBlob(new Blob([pdf as BlobPart], { type: 'application/pdf' }), `${baseName(result.fileName)}-preflight-report.pdf`);
-}
-
-export async function downloadReportPng(result: AnalysisResult, settings: Settings): Promise<void> {
-  const p = new CanvasPainter();
-  paintReport(p, result, settings);
-  const pages = p.pages;
-  const GAP = 24 * SS;
-  const fullW = W * SS;
-  const fullH = pages.length * H * SS + (pages.length - 1) * GAP;
-  // keep the stitched bitmap inside conservative canvas-area limits (long
-  // reports on mobile Safari) — scale down only when it would exceed them
-  const k = Math.min(1, Math.sqrt(48_000_000 / (fullW * fullH)));
-  const out = document.createElement('canvas');
-  out.width = Math.round(fullW * k);
-  out.height = Math.round(fullH * k);
-  const ctx = out.getContext('2d')!;
-  ctx.fillStyle = '#9aa0a8';
-  ctx.fillRect(0, 0, out.width, out.height);
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-  pages.forEach((c, i) => ctx.drawImage(
-    c, 0, Math.round(i * (H * SS + GAP) * k), Math.round(fullW * k), Math.round(H * SS * k),
-  ));
-  const blob = await new Promise<Blob | null>((resolve) => out.toBlob(resolve, 'image/png'));
-  if (blob) saveBlob(blob, `${baseName(result.fileName)}-preflight-report.png`);
 }

@@ -524,14 +524,13 @@ export default function Home() {
   // whether this file has any white-overprint spots to simulate
   const hasWhiteOp = !!result?.markers.some((m) => m.kind === 'white-op');
 
-  // report download (fully client-side: canvases → JPEG pages → PDF/PNG)
-  const exportReport = useCallback(async (kind: 'pdf' | 'png') => {
+  // report download (fully client-side: vector-text PDF, see lib/report.ts)
+  const exportReport = useCallback(async () => {
     if (!result || exporting) return;
     setExporting(true);
     try {
       const report = await import('@/lib/report');
-      if (kind === 'pdf') await report.downloadReportPdf(result, settings);
-      else await report.downloadReportPng(result, settings);
+      await report.downloadReportPdf(result, settings);
     } finally {
       setExporting(false);
     }
@@ -933,11 +932,8 @@ export default function Home() {
               <span className="chip ok"><i />OK <b>{summary.oks}</b></span>
             </span>
             <span className="sbActions">
-              <button className="btn ghost small" disabled={exporting} onClick={() => exportReport('pdf')}>
+              <button className="btn ghost small" disabled={exporting} onClick={exportReport}>
                 {exporting ? 'Exporting…' : 'PDF report'}
-              </button>
-              <button className="btn ghost small" disabled={exporting} onClick={() => exportReport('png')}>
-                PNG
               </button>
             </span>
           </div>

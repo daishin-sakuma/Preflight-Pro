@@ -162,7 +162,7 @@ export async function analyzeFile(
   // JPEGs store inverted samples, signalled by the APP14 marker → /Decode.
   const decodeCmykJpeg = async (): Promise<HTMLCanvasElement | null> => {
     try {
-      const [{ buildJpegPdf }, pdfjs, { ensurePdfWorker }] = await Promise.all([
+      const [{ buildImagePdf }, pdfjs, { ensurePdfWorker }] = await Promise.all([
         import('./minipdf.ts'),
         import('pdfjs-dist'),
         import('./pdf/analyzePdf.ts'),
@@ -171,8 +171,9 @@ export async function analyzeFile(
       const w = info.width || 1, h = info.height || 1;
       const long = Math.max(w, h);
       const fit = Math.min(1, 14000 / long); // stay under the 14400pt PDF page cap
-      const pdf = buildJpegPdf([{
-        jpeg: buf, pxW: w, pxH: h, wPt: w * fit, hPt: h * fit,
+      const pdf = buildImagePdf([{
+        data: buf, filter: 'DCTDecode',
+        pxW: w, pxH: h, wPt: w * fit, hPt: h * fit,
         colorSpace: 'DeviceCMYK',
         invertDecode: !!info.hasAdobeMarker,
       }]);

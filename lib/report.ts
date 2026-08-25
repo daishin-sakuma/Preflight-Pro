@@ -1,16 +1,45 @@
-// Client-side check report: renders the summary, criteria, findings and
-// annotated page previews onto A4 canvases, downloadable as a PDF (via the
-// minimal JPEG-page writer) or as a single stitched PNG. The report is a
-// document to hand to a print shop, so it always renders as a fixed light
-// document independent of the app theme.
+// Client-side check report, downloadable as PDF or PNG.
+//
+// One layout routine drives two painters:
+//   - PdfPainter  → a REAL text PDF: Latin via Standard-14 Helvetica, Japanese
+//     via runtime-subsetted embedded Zen Kaku Gothic New (CID/Identity-H, see
+//     lib/fontEmbed.ts) — all text selectable / searchable / sharp at any
+//     zoom. If the font can't load, non-Latin lines fall back to lossless
+//     inline images; page previews are images either way.
+//   - CanvasPainter → 2× supersampled A4 canvases (~300dpi) stitched to a PNG.
+//
+// The report is a document to hand to a print shop, so it always renders as a
+// fixed light document independent of the app theme.
 
-import type { AnalysisResult, Finding, Settings, Severity } from './types.ts';
+import pako from 'pako';
+import type { AnalysisResult, Settings, Severity } from './types.ts';
 import { CATEGORY_LABELS, CATEGORY_ORDER, pageRenderScale } from './types.ts';
 import { renderOverlays } from './overlay.ts';
 import { paperSizeMm, PAPER_PRESETS } from './presets.ts';
-import { buildJpegPdf } from './minipdf.ts';
+import { PdfDoc, encodeWinAnsi } from './pdfdoc.ts';
+import { SubsetFont } from './fontEmbed.ts';
 
-const W = 1240, H = 1754, M = 96;   // A4 @ ~150dpi with page margins
+// Japanese fonts for real-text PDF embedding (fetched lazily, cached).
+// Zen Kaku Gothic New — SIL OFL, static glyf TTFs (see public/fonts/OFL.txt).
+const JP_FONT_URLS = {
+  regular: '/fonts/ZenKakuGothicNew-Regular.ttf',
+  bold: '/fonts/ZenKakuGothicNew-Bold.ttf',
+};
+const jpFontCache = new Map<string, ArrayBuffer | null>();
+async function fetchFont(url: string): Promise<ArrayBuffer | null> {
+  if (jpFontCache.has(url)) return jpFontCache.get(url)!;
+  let buf: ArrayBuffer | null = null;
+  try {
+    const r = await fetch(url);
+    if (r.ok) buf = await r.arrayBuffer();
+  } catch { /* offline etc. — raster fallback covers it */ }
+  jpFontCache.set(url, buf);
+  return buf;
+}
+
+// logical layout grid (mapped to A4); the canvas painter renders it at 2×
+const W = 1240, H = 1754, M = 96;
+const SS = 2;
 const A4_W_PT = 595.28, A4_H_PT = 841.89;
 
 const INK = '#1f232b', MUTED = '#5b6270', SUBTLE = '#8a909c', LINE = '#dcdfe5', WELL = '#f5f6f8';
@@ -20,21 +49,209 @@ const SEV_COLOR: Record<Severity, string> = {
 const SEV_LABEL: Record<Severity, string> = { error: 'ERROR', warning: 'WARN', ok: 'OK', info: 'INFO' };
 const SEV_RANK: Record<Severity, number> = { ok: 0, info: 1, warning: 2, error: 3 };
 
-const FONT = 'sans-serif';
+// Helvetica-first so canvas measurement matches the PDF's Standard-14
+// Helvetica (Arial is metric-compatible where Helvetica is absent)
+const FONT_STACK = 'Helvetica, Arial, sans-serif';
+const fontCss = (size: number, bold: boolean) => `${bold ? 700 : 400} ${size}px ${FONT_STACK}`;
 
-function wrapText(ctx: CanvasRenderingContext2D, text: string, maxW: number): string[] {
+// shared text measurer (identical wrapping for both painters)
+let measCtx: CanvasRenderingContext2D | null = null;
+function measure(t: string, size: number, bold: boolean): number {
+  measCtx ??= document.createElement('canvas').getContext('2d')!;
+  measCtx.font = fontCss(size, bold);
+  return measCtx.measureText(t).width;
+}
+
+// canvas → deflated raw RGB (lossless FlateDecode stream)
+const canvasFlateRgb = (c: HTMLCanvasElement): Uint8Array => {
+  const { data } = c.getContext('2d')!.getImageData(0, 0, c.width, c.height);
+  const rgb = new Uint8Array(c.width * c.height * 3);
+  for (let i = 0, o = 0; i < data.length; i += 4) {
+    rgb[o++] = data[i]; rgb[o++] = data[i + 1]; rgb[o++] = data[i + 2];
+  }
+  return pako.deflate(rgb);
+};
+
+// ---- painter abstraction ----------------------------------------------------
+
+interface Painter {
+  newPage(): void;
+  setFont(size: number, bold: boolean): void;
+  measure(t: string): number;
+  text(t: string, x: number, yBase: number, color: string): void;
+  fillRect(x: number, yTop: number, w: number, h: number, color: string, radius?: number): void;
+  strokeRect(x: number, yTop: number, w: number, h: number, color: string, lw: number, radius?: number): void;
+  line(x1: number, y1: number, x2: number, y2: number, color: string, lw: number): void;
+  image(src: HTMLCanvasElement, x: number, yTop: number, w: number, h: number, border?: string): void;
+  footers(make: (i: number, total: number) => { left: string; right: string }): void;
+}
+
+class CanvasPainter implements Painter {
+  pages: HTMLCanvasElement[] = [];
+  private ctx: CanvasRenderingContext2D = null!;
+  private size = 21;
+  private bold = false;
+
+  newPage() {
+    const c = document.createElement('canvas');
+    c.width = W * SS; c.height = H * SS;
+    this.ctx = c.getContext('2d')!;
+    this.ctx.scale(SS, SS); // draw in logical coordinates, render at 2×
+    this.ctx.fillStyle = '#ffffff';
+    this.ctx.fillRect(0, 0, W, H);
+    this.pages.push(c);
+  }
+  setFont(size: number, bold: boolean) { this.size = size; this.bold = bold; }
+  measure(t: string) { return measure(t, this.size, this.bold); }
+  text(t: string, x: number, yBase: number, color: string) {
+    this.ctx.font = fontCss(this.size, this.bold);
+    this.ctx.fillStyle = color;
+    this.ctx.fillText(t, x, yBase);
+  }
+  fillRect(x: number, yTop: number, w: number, h: number, color: string, radius = 0) {
+    this.ctx.fillStyle = color;
+    this.ctx.beginPath();
+    this.ctx.roundRect(x, yTop, w, h, radius);
+    this.ctx.fill();
+  }
+  strokeRect(x: number, yTop: number, w: number, h: number, color: string, lw: number, radius = 0) {
+    this.ctx.strokeStyle = color;
+    this.ctx.lineWidth = lw;
+    this.ctx.beginPath();
+    this.ctx.roundRect(x, yTop, w, h, radius);
+    this.ctx.stroke();
+  }
+  line(x1: number, y1: number, x2: number, y2: number, color: string, lw: number) {
+    this.ctx.strokeStyle = color;
+    this.ctx.lineWidth = lw;
+    this.ctx.beginPath();
+    this.ctx.moveTo(x1, y1);
+    this.ctx.lineTo(x2, y2);
+    this.ctx.stroke();
+  }
+  image(src: HTMLCanvasElement, x: number, yTop: number, w: number, h: number, border?: string) {
+    this.ctx.imageSmoothingEnabled = true;
+    this.ctx.imageSmoothingQuality = 'high';
+    this.ctx.drawImage(src, x, yTop, w, h);
+    if (border) this.strokeRect(x, yTop, w, h, border, 1);
+  }
+  footers(make: (i: number, total: number) => { left: string; right: string }) {
+    this.pages.forEach((c, i) => {
+      const fx = c.getContext('2d')!; // same context — the SS transform persists
+      const { left, right } = make(i, this.pages.length);
+      fx.font = fontCss(19, false);
+      fx.fillStyle = SUBTLE;
+      fx.fillText(left, M, H - 48);
+      fx.fillText(right, W - M - measure(right, 19, false), H - 48);
+    });
+  }
+}
+
+class PdfPainter implements Painter {
+  doc = new PdfDoc(A4_W_PT, A4_H_PT, W, H);
+  private size = 21;
+  private bold = false;
+  private jpReg: SubsetFont | null = null;
+  private jpBold: SubsetFont | null = null;
+
+  // fetch + parse the Japanese fonts (no-op when unavailable; text() then
+  // falls back to rasterizing non-Latin lines)
+  async loadJapaneseFonts(): Promise<void> {
+    const [reg, bold] = await Promise.all([
+      fetchFont(JP_FONT_URLS.regular), fetchFont(JP_FONT_URLS.bold),
+    ]);
+    this.jpReg = reg ? SubsetFont.parse(reg) : null;
+    this.jpBold = bold ? SubsetFont.parse(bold) : null;
+  }
+
+  // attach the built subsets after layout (content ops already reference F3/F4)
+  finishFonts(): void {
+    if (this.jpReg?.used) this.doc.setCidFont('F3', this.jpReg.build('PFPROA+ZenKakuGothicNew-Regular'));
+    if (this.jpBold?.used) this.doc.setCidFont('F4', this.jpBold.build('PFPROB+ZenKakuGothicNew-Bold'));
+  }
+
+  private jpFor(bold: boolean): { font: SubsetFont; res: string } | null {
+    if (bold && this.jpBold) return { font: this.jpBold, res: 'F4' };
+    return this.jpReg ? { font: this.jpReg, res: 'F3' } : null;
+  }
+
+  newPage() { this.doc.addPage(); }
+  setFont(size: number, bold: boolean) { this.size = size; this.bold = bold; }
+  measure(t: string) {
+    // non-Latin lines are typeset with the embedded JP font, so measure with
+    // its actual advance widths (keeps wrapping exact)
+    if (encodeWinAnsi(t) === null) {
+      const m = this.jpFor(this.bold)?.font.measure(t, this.size);
+      if (m != null) return m;
+    }
+    return measure(t, this.size, this.bold);
+  }
+  text(t: string, x: number, yBase: number, color: string) {
+    if (this.doc.text(t, x, yBase, this.size, this.bold, color)) return;
+    // outside WinAnsi → embedded subset CID font (real, selectable text)
+    const jp = this.jpFor(this.bold);
+    const gids = jp?.font.encode(t);
+    if (jp && gids) {
+      this.doc.textCid(jp.res, gids, x, yBase, this.size, color);
+      return;
+    }
+    // last resort (font missing / glyph not covered): rasterize just this
+    // line at 3× and place it losslessly at the text position.
+    const wLog = Math.max(1, this.measure(t));
+    const hLog = this.size * 1.45;
+    const RAS = 3;
+    const c = document.createElement('canvas');
+    c.width = Math.ceil(wLog * RAS);
+    c.height = Math.ceil(hLog * RAS);
+    const cx = c.getContext('2d')!;
+    cx.scale(RAS, RAS);
+    cx.fillStyle = '#ffffff';
+    cx.fillRect(0, 0, wLog + 1, hLog + 1);
+    cx.fillStyle = color;
+    cx.font = fontCss(this.size, this.bold);
+    cx.fillText(t, 0, this.size * 1.1);
+    this.doc.image(canvasFlateRgb(c), c.width, c.height, x, yBase - this.size * 1.1, wLog, hLog);
+  }
+  fillRect(x: number, yTop: number, w: number, h: number, color: string, radius = 0) {
+    this.doc.fillRect(x, yTop, w, h, color, radius);
+  }
+  strokeRect(x: number, yTop: number, w: number, h: number, color: string, lw: number, radius = 0) {
+    this.doc.strokeRect(x, yTop, w, h, color, lw, radius);
+  }
+  line(x1: number, y1: number, x2: number, y2: number, color: string, lw: number) {
+    this.doc.line(x1, y1, x2, y2, color, lw);
+  }
+  image(src: HTMLCanvasElement, x: number, yTop: number, w: number, h: number, border?: string) {
+    this.doc.image(canvasFlateRgb(src), src.width, src.height, x, yTop, w, h);
+    if (border) this.doc.strokeRect(x, yTop, w, h, border, 1);
+  }
+  footers(make: (i: number, total: number) => { left: string; right: string }) {
+    const total = this.doc.pageCount;
+    for (let i = 0; i < total; i++) {
+      this.doc.usePage(i);
+      this.setFont(19, false);
+      const { left, right } = make(i, total);
+      this.text(left, M, H - 48, SUBTLE);
+      this.text(right, W - M - this.measure(right), H - 48, SUBTLE);
+    }
+  }
+}
+
+// ---- shared layout ------------------------------------------------------------
+
+function wrap(p: Painter, text: string, maxW: number): string[] {
   const words = text.split(/\s+/);
   const lines: string[] = [];
   let line = '';
   for (const word of words) {
     const probe = line ? `${line} ${word}` : word;
-    if (ctx.measureText(probe).width <= maxW) { line = probe; continue; }
+    if (p.measure(probe) <= maxW) { line = probe; continue; }
     if (line) lines.push(line);
-    // hard-split an over-long single word (rare: long names / values)
-    if (ctx.measureText(word).width > maxW) {
+    if (p.measure(word) > maxW) {
+      // hard-split an over-long single word (long names / values)
       let part = '';
       for (const ch of word) {
-        if (ctx.measureText(part + ch).width > maxW) { lines.push(part); part = ch; }
+        if (p.measure(part + ch) > maxW) { lines.push(part); part = ch; }
         else part += ch;
       }
       line = part;
@@ -46,55 +263,63 @@ function wrapText(ctx: CanvasRenderingContext2D, text: string, maxW: number): st
   return lines;
 }
 
-function buildReportPages(result: AnalysisResult, settings: Settings): HTMLCanvasElement[] {
-  const pages: HTMLCanvasElement[] = [];
-  let ctx: CanvasRenderingContext2D = null!;
+// page preview composited with guides/dims/bleed, capped for embedding
+function previewComposite(result: AnalysisResult, settings: Settings, pageIdx: number): HTMLCanvasElement {
+  const src = result.previews[pageIdx];
+  const comp = document.createElement('canvas');
+  comp.width = src.width; comp.height = src.height;
+  const cc = comp.getContext('2d')!;
+  cc.drawImage(src, 0, 0);
+  renderOverlays(comp, {
+    result, settings, pageIdx,
+    showTac: false, showGuides: true, showDims: true, showBleed: true,
+    markerKind: null, scaleOverride: pageRenderScale(result, pageIdx),
+  });
+  const long = Math.max(comp.width, comp.height);
+  if (long <= 1800) return comp;
+  const k = 1800 / long;
+  const capped = document.createElement('canvas');
+  capped.width = Math.round(comp.width * k);
+  capped.height = Math.round(comp.height * k);
+  const kc = capped.getContext('2d')!;
+  kc.imageSmoothingEnabled = true;
+  kc.imageSmoothingQuality = 'high';
+  kc.drawImage(comp, 0, 0, capped.width, capped.height);
+  return capped;
+}
+
+function paintReport(p: Painter, result: AnalysisResult, settings: Settings): void {
   let y = 0;
   const CW = W - M * 2;
-
-  const newPage = () => {
-    const c = document.createElement('canvas');
-    c.width = W; c.height = H;
-    ctx = c.getContext('2d')!;
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, W, H);
-    pages.push(c);
-    y = M;
-  };
+  const newPage = () => { p.newPage(); y = M; };
   const ensure = (need: number) => { if (y + need > H - M - 40) newPage(); };
 
   newPage();
 
   // ---- title block ----
-  ctx.fillStyle = INK;
-  ctx.font = `700 44px ${FONT}`;
-  ctx.fillText('Preflight report', M, y + 40);
-  ctx.fillStyle = SUBTLE;
-  ctx.font = `22px ${FONT}`;
+  p.setFont(44, true);
+  p.text('Preflight report', M, y + 40, INK);
+  p.setFont(22, false);
   const gen = `Generated ${new Date().toLocaleString('en-US')} · Preflight Pro`;
-  ctx.fillText(gen, W - M - ctx.measureText(gen).width, y + 40);
+  p.text(gen, W - M - p.measure(gen), y + 40, SUBTLE);
   y += 72;
-  ctx.strokeStyle = LINE;
-  ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(M, y); ctx.lineTo(W - M, y); ctx.stroke();
+  p.line(M, y, W - M, y, LINE, 2);
   y += 34;
 
   // file + criteria facts
   const paper = paperSizeMm(settings.paperId, settings.customWmm, settings.customHmm, settings.landscape);
-  const preset = PAPER_PRESETS.find((p) => p.id === settings.paperId);
+  const preset = PAPER_PRESETS.find((q) => q.id === settings.paperId);
   const facts: [string, string][] = [
     ['File', `${result.fileName} (${(result.fileSize / 1024 / 1024).toFixed(2)}MB · ${result.kind === 'pdf' ? `PDF · ${result.pageCount} page${result.pageCount > 1 ? 's' : ''}` : `${result.imageInfo?.format.toUpperCase() ?? 'image'}`})`],
     ['Finished size', `${paper.wMm}×${paper.hMm}mm${preset && preset.id !== 'custom' ? ` (${preset.label})` : ''}${settings.landscape ? ' · landscape' : ''}${settings.scale !== 1 ? ` · design scale 1:${settings.scale}` : ''}`],
     ['Criteria', `Bleed ${settings.bleedMm}mm · Ink limit ${settings.tacLimit}% · Min resolution ${settings.minDpi}dpi · RGB: ${settings.requireCmyk ? 'error (CMYK required)' : 'warning only'}`],
   ];
   for (const [label, value] of facts) {
-    ctx.fillStyle = SUBTLE;
-    ctx.font = `700 20px ${FONT}`;
-    ctx.fillText(label.toUpperCase(), M, y);
-    ctx.fillStyle = INK;
-    ctx.font = `23px ${FONT}`;
-    for (const line of wrapText(ctx, value, CW - 220)) {
-      ctx.fillText(line, M + 220, y);
+    p.setFont(20, true);
+    p.text(label.toUpperCase(), M, y, SUBTLE);
+    p.setFont(23, false);
+    for (const line of wrap(p, value, CW - 220)) {
+      p.text(line, M + 220, y, INK);
       y += 30;
     }
     y += 8;
@@ -110,17 +335,13 @@ function buildReportPages(result: AnalysisResult, settings: Settings): HTMLCanva
     ? 'Problems were found that need fixing'
     : warns ? 'Ready to submit, but some items are worth reviewing' : 'All checks passed';
   ensure(96);
-  ctx.fillStyle = WELL;
-  ctx.strokeStyle = verdictColor;
-  ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.roundRect(M, y, CW, 76, 10); ctx.fill(); ctx.stroke();
-  ctx.fillStyle = verdictColor;
-  ctx.font = `700 27px ${FONT}`;
-  ctx.fillText(verdictText, M + 28, y + 47);
-  ctx.fillStyle = MUTED;
-  ctx.font = `23px ${FONT}`;
+  p.fillRect(M, y, CW, 76, WELL, 10);
+  p.strokeRect(M, y, CW, 76, verdictColor, 2, 10);
+  p.setFont(27, true);
+  p.text(verdictText, M + 28, y + 47, verdictColor);
+  p.setFont(23, false);
   const tally = `Errors ${errs} · Warnings ${warns} · OK ${oks}`;
-  ctx.fillText(tally, W - M - 28 - ctx.measureText(tally).width, y + 47);
+  p.text(tally, W - M - 28 - p.measure(tally), y + 47, MUTED);
   y += 76 + 44;
 
   // ---- findings by category ----
@@ -130,45 +351,37 @@ function buildReportPages(result: AnalysisResult, settings: Settings): HTMLCanva
       .filter((f) => f.category === cat)
       .sort((a, b) => SEV_RANK[b.severity] - SEV_RANK[a.severity]);
     ensure(70);
-    ctx.fillStyle = INK;
-    ctx.font = `700 26px ${FONT}`;
-    ctx.fillText(`${ci + 1}. ${CATEGORY_LABELS[cat]}`, M, y);
+    p.setFont(26, true);
+    p.text(`${ci + 1}. ${CATEGORY_LABELS[cat]}`, M, y, INK);
     y += 14;
-    ctx.strokeStyle = LINE;
-    ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(M, y); ctx.lineTo(W - M, y); ctx.stroke();
+    p.line(M, y, W - M, y, LINE, 1);
     y += 30;
 
     for (const f of items) {
-      ctx.font = `21px ${FONT}`;
-      const detailLines = wrapText(ctx, f.detail, CW - 40);
+      p.setFont(21, false);
+      const detailLines = wrap(p, f.detail, CW - 40);
       const blockH = 34 + detailLines.length * 27 + (f.pages?.length ? 26 : 0) + 18;
       ensure(blockH);
 
       // severity tag
-      ctx.font = `700 17px ${FONT}`;
+      p.setFont(17, true);
       const tag = SEV_LABEL[f.severity];
-      const tagW = ctx.measureText(tag).width + 18;
-      ctx.fillStyle = SEV_COLOR[f.severity];
-      ctx.beginPath(); ctx.roundRect(M, y - 17, tagW, 24, 4); ctx.fill();
-      ctx.fillStyle = '#ffffff';
-      ctx.fillText(tag, M + 9, y + 1);
+      const tagW = p.measure(tag) + 18;
+      p.fillRect(M, y - 17, tagW, 24, SEV_COLOR[f.severity], 4);
+      p.text(tag, M + 9, y + 1, '#ffffff');
       // title
-      ctx.fillStyle = INK;
-      ctx.font = `700 23px ${FONT}`;
-      ctx.fillText(`${f.title}${f.count ? ` (${f.count})` : ''}`, M + tagW + 14, y + 1);
+      p.setFont(23, true);
+      p.text(`${f.title}${f.count ? ` (${f.count})` : ''}`, M + tagW + 14, y + 1, INK);
       y += 32;
       // detail
-      ctx.fillStyle = MUTED;
-      ctx.font = `21px ${FONT}`;
+      p.setFont(21, false);
       for (const line of detailLines) {
-        ctx.fillText(line, M + 40, y);
+        p.text(line, M + 40, y, MUTED);
         y += 27;
       }
       if (f.pages?.length) {
-        ctx.fillStyle = SUBTLE;
-        ctx.font = `19px ${FONT}`;
-        ctx.fillText(`Pages: ${f.pages.join(', ')}`, M + 40, y);
+        p.setFont(19, false);
+        p.text(`Pages: ${f.pages.join(', ')}`, M + 40, y, SUBTLE);
         y += 26;
       }
       y += 18;
@@ -183,64 +396,34 @@ function buildReportPages(result: AnalysisResult, settings: Settings): HTMLCanva
   }
   if (previewIdxs.length) {
     ensure(120);
-    ctx.fillStyle = INK;
-    ctx.font = `700 26px ${FONT}`;
-    ctx.fillText(`${catIndex.length + 1}. Page previews (guides / dimensions / bleed)`, M, y);
+    p.setFont(26, true);
+    p.text(`${catIndex.length + 1}. Page previews (guides / dimensions / bleed)`, M, y, INK);
     y += 14;
-    ctx.strokeStyle = LINE;
-    ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(M, y); ctx.lineTo(W - M, y); ctx.stroke();
+    p.line(M, y, W - M, y, LINE, 1);
     y += 34;
 
     for (const i of previewIdxs) {
-      const src = result.previews[i];
-      const comp = document.createElement('canvas');
-      comp.width = src.width; comp.height = src.height;
-      const cc = comp.getContext('2d')!;
-      cc.drawImage(src, 0, 0);
-      renderOverlays(comp, {
-        result, settings, pageIdx: i,
-        showTac: false, showGuides: true, showDims: true, showBleed: true,
-        markerKind: null, scaleOverride: pageRenderScale(result, i),
-      });
-      const maxW = CW, maxH = 620;
-      const k = Math.min(maxW / comp.width, maxH / comp.height);
+      const comp = previewComposite(result, settings, i);
+      const k = Math.min(CW / comp.width, 620 / comp.height);
       const dw = Math.round(comp.width * k), dh = Math.round(comp.height * k);
       ensure(dh + 64);
       const dx = M + Math.round((CW - dw) / 2);
-      ctx.drawImage(comp, dx, y, dw, dh);
-      ctx.strokeStyle = LINE;
-      ctx.lineWidth = 1;
-      ctx.strokeRect(dx - 0.5, y - 0.5, dw + 1, dh + 1);
+      p.image(comp, dx, y, dw, dh, LINE);
       y += dh + 8;
-      ctx.fillStyle = SUBTLE;
-      ctx.font = `19px ${FONT}`;
+      p.setFont(19, false);
       const cap = result.pageCount > 1 ? `Page ${i + 1}` : result.fileName;
-      ctx.fillText(cap, M + Math.round((CW - ctx.measureText(cap).width) / 2), y + 12);
+      p.text(cap, M + Math.round((CW - p.measure(cap)) / 2), y + 12, SUBTLE);
       y += 44;
     }
   }
 
-  // footers (drawn last so the page total is known)
-  pages.forEach((c, i) => {
-    const fx = c.getContext('2d')!;
-    fx.fillStyle = SUBTLE;
-    fx.font = `19px ${FONT}`;
-    fx.fillText(`Preflight Pro — pre-submission self-check (does not replace the shop's inspection)`, M, H - 48);
-    const num = `${i + 1} / ${pages.length}`;
-    fx.fillText(num, W - M - fx.measureText(num).width, H - 48);
-  });
-
-  return pages;
+  p.footers((i, total) => ({
+    left: 'Preflight Pro — pre-submission self-check (does not replace the shop\'s inspection)',
+    right: `${i + 1} / ${total}`,
+  }));
 }
 
-const canvasJpeg = (c: HTMLCanvasElement, quality = 0.88) =>
-  new Promise<Uint8Array>((resolve, reject) => {
-    c.toBlob((b) => {
-      if (!b) { reject(new Error('toBlob failed')); return; }
-      b.arrayBuffer().then((a) => resolve(new Uint8Array(a)), reject);
-    }, 'image/jpeg', quality);
-  });
+// ---- downloads ------------------------------------------------------------
 
 function saveBlob(blob: Blob, name: string) {
   const url = URL.createObjectURL(blob);
@@ -253,25 +436,46 @@ function saveBlob(blob: Blob, name: string) {
 
 const baseName = (n: string) => n.replace(/\.[^.]+$/, '');
 
+// does any dynamic report text need a non-Latin (CJK) font?
+function reportNeedsCjk(result: AnalysisResult): boolean {
+  const texts = [
+    result.fileName,
+    ...result.findings.flatMap((f) => [f.title, f.detail]),
+    ...result.notes,
+  ];
+  return texts.some((t) => encodeWinAnsi(t) === null);
+}
+
 export async function downloadReportPdf(result: AnalysisResult, settings: Settings): Promise<void> {
-  const pages = buildReportPages(result, settings);
-  const jpegs = await Promise.all(pages.map((c) => canvasJpeg(c)));
-  const pdf = buildJpegPdf(jpegs.map((jpeg, i) => ({
-    jpeg, pxW: pages[i].width, pxH: pages[i].height, wPt: A4_W_PT, hPt: A4_H_PT,
-  })));
+  const p = new PdfPainter();
+  if (reportNeedsCjk(result)) await p.loadJapaneseFonts();
+  paintReport(p, result, settings);
+  p.finishFonts();
+  const pdf = p.doc.build();
   saveBlob(new Blob([pdf as BlobPart], { type: 'application/pdf' }), `${baseName(result.fileName)}-preflight-report.pdf`);
 }
 
 export async function downloadReportPng(result: AnalysisResult, settings: Settings): Promise<void> {
-  const pages = buildReportPages(result, settings);
-  const GAP = 24;
+  const p = new CanvasPainter();
+  paintReport(p, result, settings);
+  const pages = p.pages;
+  const GAP = 24 * SS;
+  const fullW = W * SS;
+  const fullH = pages.length * H * SS + (pages.length - 1) * GAP;
+  // keep the stitched bitmap inside conservative canvas-area limits (long
+  // reports on mobile Safari) — scale down only when it would exceed them
+  const k = Math.min(1, Math.sqrt(48_000_000 / (fullW * fullH)));
   const out = document.createElement('canvas');
-  out.width = W;
-  out.height = pages.length * H + (pages.length - 1) * GAP;
+  out.width = Math.round(fullW * k);
+  out.height = Math.round(fullH * k);
   const ctx = out.getContext('2d')!;
   ctx.fillStyle = '#9aa0a8';
   ctx.fillRect(0, 0, out.width, out.height);
-  pages.forEach((c, i) => ctx.drawImage(c, 0, i * (H + GAP)));
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  pages.forEach((c, i) => ctx.drawImage(
+    c, 0, Math.round(i * (H * SS + GAP) * k), Math.round(fullW * k), Math.round(H * SS * k),
+  ));
   const blob = await new Promise<Blob | null>((resolve) => out.toBlob(resolve, 'image/png'));
   if (blob) saveBlob(blob, `${baseName(result.fileName)}-preflight-report.png`);
 }

@@ -1,11 +1,13 @@
-// Minimal client-side PDF writer: pages that each contain a single JPEG
-// (DCTDecode passthrough — the JPEG bytes are embedded as-is, never re-encoded).
-// Used for the downloadable check report (RGB JPEG pages) and to wrap CMYK
-// JPEGs in a one-page PDF so pdf.js can decode them for preview (browsers
-// can't decode CMYK JPEGs natively).
+// Minimal client-side PDF writer: pages that each contain a single image.
+// Two stream flavours:
+//   - DCTDecode: pre-encoded JPEG bytes embedded as-is (used to wrap CMYK
+//     JPEGs in a one-page PDF so pdf.js can decode them for preview)
+//   - FlateDecode: deflated raw pixel data (used by the check report — text
+//     stays pixel-perfect, no JPEG mosquito noise around glyph edges)
 
-export interface JpegPdfPage {
-  jpeg: Uint8Array;
+export interface PdfImagePage {
+  data: Uint8Array;        // encoded image stream (JPEG bytes, or deflated raw samples)
+  filter: 'DCTDecode' | 'FlateDecode';
   pxW: number;
   pxH: number;
   wPt: number;             // page size in points
@@ -16,7 +18,7 @@ export interface JpegPdfPage {
 
 const fmt = (v: number) => String(Math.round(v * 100) / 100);
 
-export function buildJpegPdf(pages: JpegPdfPage[]): Uint8Array {
+export function buildImagePdf(pages: PdfImagePage[]): Uint8Array {
   const enc = new TextEncoder();
   const chunks: Uint8Array[] = [];
   let offset = 0;
@@ -48,8 +50,8 @@ export function buildJpegPdf(pages: JpegPdfPage[]): Uint8Array {
     const decode = p.invertDecode ? ` /Decode [${Array(comps).fill('1 0').join(' ')}]` : '';
     offsets[imgN] = offset;
     push(`${imgN} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${p.pxW} /Height ${p.pxH} ` +
-      `/ColorSpace /${cs} /BitsPerComponent 8 /Filter /DCTDecode${decode} /Length ${p.jpeg.length} >>\nstream\n`);
-    push(p.jpeg);
+      `/ColorSpace /${cs} /BitsPerComponent 8 /Filter /${p.filter}${decode} /Length ${p.data.length} >>\nstream\n`);
+    push(p.data);
     push('\nendstream\nendobj\n');
 
     const content = `q ${fmt(p.wPt)} 0 0 ${fmt(p.hPt)} 0 0 cm /Im0 Do Q`;

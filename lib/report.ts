@@ -38,6 +38,36 @@ async function fetchFont(url: string): Promise<ArrayBuffer | null> {
   return buf;
 }
 
+// App icon for the report header, composited onto white with the same rounded
+// corners the UI uses (radius = 25% of the box). Cached; null when unavailable
+// (the header simply renders without it).
+let logoCache: HTMLCanvasElement | null | undefined;
+async function loadLogoCanvas(): Promise<HTMLCanvasElement | null> {
+  if (logoCache !== undefined) return logoCache;
+  try {
+    const r = await fetch('/logo.png');
+    if (!r.ok) throw new Error(String(r.status));
+    const bmp = await createImageBitmap(await r.blob());
+    const px = 144; // 46 logical units at ~3× for print sharpness
+    const c = document.createElement('canvas');
+    c.width = px; c.height = px;
+    const ctx = c.getContext('2d')!;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, px, px);
+    ctx.beginPath();
+    ctx.roundRect(0, 0, px, px, px * 0.25);
+    ctx.clip();
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(bmp, 0, 0, px, px);
+    bmp.close();
+    logoCache = c;
+  } catch {
+    logoCache = null;
+  }
+  return logoCache;
+}
+
 // logical layout grid (mapped onto the A4 page)
 const W = 1240, H = 1754, M = 96;
 const A4_W_PT = 595.28, A4_H_PT = 841.89;
@@ -231,7 +261,10 @@ function previewComposite(result: AnalysisResult, settings: Settings, pageIdx: n
   return capped;
 }
 
-function paintReport(p: PdfPainter, result: AnalysisResult, settings: Settings): void {
+function paintReport(
+  p: PdfPainter, result: AnalysisResult, settings: Settings,
+  logo: HTMLCanvasElement | null,
+): void {
   let y = 0;
   const CW = W - M * 2;
   const newPage = () => { p.newPage(); y = M; };
@@ -239,9 +272,10 @@ function paintReport(p: PdfPainter, result: AnalysisResult, settings: Settings):
 
   newPage();
 
-  // ---- title block ----
+  // ---- title block (app icon + title, generation info at the right) ----
+  if (logo) p.image(logo, M, y + 1, 46, 46);
   p.setFont(44, true);
-  p.text('Preflight report', M, y + 40, INK);
+  p.text('Preflight report', logo ? M + 62 : M, y + 40, INK);
   p.setFont(22, false);
   const gen = `Generated ${new Date().toLocaleString('en-US')} · Preflight Pro`;
   p.text(gen, W - M - p.measure(gen), y + 40, SUBTLE);
@@ -391,8 +425,8 @@ function reportNeedsCjk(result: AnalysisResult): boolean {
 
 export async function downloadReportPdf(result: AnalysisResult, settings: Settings): Promise<void> {
   const p = new PdfPainter();
-  await p.loadFonts(reportNeedsCjk(result));
-  paintReport(p, result, settings);
+  const [logo] = await Promise.all([loadLogoCanvas(), p.loadFonts(reportNeedsCjk(result))]);
+  paintReport(p, result, settings, logo);
   p.finishFonts();
   const pdf = p.doc.build();
   saveBlob(new Blob([pdf as BlobPart], { type: 'application/pdf' }), `${baseName(result.fileName)}-preflight-report.pdf`);

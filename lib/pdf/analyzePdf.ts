@@ -1,19 +1,19 @@
 // PDF analysis orchestration using pdf.js:
+//  - byte-level scan + content-stream interpretation run in a Web Worker
+//    (lib/analysisWorker.ts) so the UI stays responsive
 //  - renders page previews (also used for pixel TAC analysis)
 //  - walks the operator list to compute effective DPI of every placed image
 //    (tracking the CTM through save/restore/transform/form-xobjects)
-//  - merges byte-level scan + content-stream interpretation results.
+//  - pages beyond the initial analysis window render on demand (ensurePage)
 
 import * as pdfjs from 'pdfjs-dist';
-import type { PlacedImage, PageGeom, TacResult } from '../types.ts';
+import type { PlacedImage, PageGeom, TacResult, ContentStats, PdfScan } from '../types.ts';
 import { MM_PER_PT } from '../types.ts';
-import { rawScanPdf, type RawScanResult } from './rawScan.ts';
-import { interpretContent } from './contentInterp.ts';
+import { scanPdfOffThread } from '../analysisWorker.ts';
 import { analyzeTac } from '../tac.ts';
-import type { ContentStats } from '../types.ts';
 
 let workerReady = false;
-function ensureWorker() {
+export function ensurePdfWorker() {
   if (!workerReady) {
     pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
     workerReady = true;
@@ -37,7 +37,8 @@ function mul(m: Mat, n: Mat): Mat {
 export interface PdfAnalysis {
   pageCount: number;
   pages: PageGeom[];
-  raw: RawScanResult;
+  scan: PdfScan;
+  aiArtboard: { wMm: number; hMm: number } | null;
   content: ContentStats;
   images: PlacedImage[];
   tac: TacResult[];
@@ -46,6 +47,7 @@ export interface PdfAnalysis {
   renderScales: number[];      // per-page px-per-pt (mixed page sizes differ)
   notes: string[];
   renderPage: (pageIdx: number, scale: number) => Promise<HTMLCanvasElement | null>;
+  ensurePage: (pageIdx: number) => Promise<boolean>;
   dispose: () => void;
 }
 
@@ -60,18 +62,16 @@ export async function analyzePdf(
   tacLimit: number,
   onProgress?: (msg: string) => void,
 ): Promise<PdfAnalysis> {
-  ensureWorker();
+  ensurePdfWorker();
   const notes: string[] = [];
 
   onProgress?.('Analyzing PDF structure…');
-  const raw = rawScanPdf(bytes);
-
-  onProgress?.('Analyzing color & overprint…');
-  const content = interpretContent(raw.contentStreams, raw.scan.overprintTrue, raw.csNames, raw.fontNames, raw.gsNames);
+  const bundle = await scanPdfOffThread(bytes);
+  const content = bundle.content;
 
   // merge gradient (shading) endpoint colors — they carry real ink values but
   // never appear as fill operators in the content stream.
-  for (const g of raw.gradientCmyk) {
+  for (const g of bundle.gradientCmyk) {
     content.cmykFills.push({
       c: g.c, m: g.m, y: g.y, k: g.k,
       tac: (g.c + g.m + g.y + g.k) * 100,
@@ -88,36 +88,35 @@ export async function analyzePdf(
   const previews: HTMLCanvasElement[] = [];
   const renderScales: number[] = [];
 
-  const maxAnalyzePages = Math.min(pageCount, 8);
-  if (pageCount > maxAnalyzePages) {
-    notes.push(`Many pages: preview/image analysis was limited to the first ${maxAnalyzePages} pages.`);
-  }
-
-  for (let p = 1; p <= maxAnalyzePages; p++) {
-    onProgress?.(`Rendering page ${p}/${maxAnalyzePages}…`);
+  // page geometry for every page (cheap — no rendering)
+  for (let p = 1; p <= pageCount; p++) {
     const page = await doc.getPage(p);
     const view = page.view as number[]; // crop box
-    const media = pickBox(raw.boxes.media, p - 1) ?? [view[0], view[1], view[2], view[3]];
-    const geom: PageGeom = {
+    pages.push({
       page: p,
       viewBoxPt: [view[0], view[1], view[2], view[3]],
-      mediaBoxPt: media as [number, number, number, number],
-      trimBoxPt: pickBox(raw.boxes.trim, p - 1),
-      bleedBoxPt: pickBox(raw.boxes.bleed, p - 1),
-      cropBoxPt: pickBox(raw.boxes.crop, p - 1),
-      artBoxPt: pickBox(raw.boxes.art, p - 1),
+      mediaBoxPt: pickBox(bundle.boxes.media, p - 1) ?? [view[0], view[1], view[2], view[3]],
+      trimBoxPt: pickBox(bundle.boxes.trim, p - 1),
+      bleedBoxPt: pickBox(bundle.boxes.bleed, p - 1),
+      cropBoxPt: pickBox(bundle.boxes.crop, p - 1),
+      artBoxPt: pickBox(bundle.boxes.art, p - 1),
       widthPt: view[2] - view[0],
       heightPt: view[3] - view[1],
-    };
-    pages.push(geom);
+    });
+  }
 
-    // ---- render preview ----
+  // Render + pixel-analyze one page: preview canvas, TAC heat, effective DPI
+  // of placed images. Used for the initial window and for on-demand pages.
+  const renderAnalyzePage = async (p: number) => {
+    const page = await doc.getPage(p);
+    const geom = pages[p - 1];
+
     // Target ~2200px on the long edge regardless of page size, so small pages
     // (business cards etc.) render at high scale and stay sharp when the
     // preview stage displays them large / zoomed. Cap at 10x for tiny pages.
     const longEdge = Math.max(geom.widthPt, geom.heightPt);
     const scale = Math.min(10, Math.max(0.5, 2200 / longEdge));
-    renderScales.push(scale); // recorded per page — mixed page sizes get different scales
+    renderScales[p - 1] = scale;
     const viewport = page.getViewport({ scale });
     const canvas = document.createElement('canvas');
     canvas.width = Math.ceil(viewport.width);
@@ -126,7 +125,7 @@ export async function analyzePdf(
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     await page.render({ canvasContext: ctx, viewport }).promise;
-    previews.push(canvas);
+    previews[p - 1] = canvas;
 
     // ---- pixel TAC (approximate) ----
     tac.push(analyzeTac(canvas, p, tacLimit));
@@ -199,23 +198,34 @@ export async function analyzePdf(
     } catch (e) {
       notes.push(`Skipped image analysis on page ${p} (${String(e).slice(0, 80)})`);
     }
+  };
+
+  const maxAnalyzePages = Math.min(pageCount, 8);
+  if (pageCount > maxAnalyzePages) {
+    notes.push(`Many pages: the full analysis covered the first ${maxAnalyzePages} pages. ` +
+      'Later pages are rendered on demand as you navigate to them (their findings are not re-evaluated).');
+  }
+  for (let p = 1; p <= maxAnalyzePages; p++) {
+    onProgress?.(`Rendering page ${p}/${maxAnalyzePages}…`);
+    await renderAnalyzePage(p);
   }
 
-  // page geometry for remaining pages (no render)
-  for (let p = maxAnalyzePages + 1; p <= pageCount; p++) {
-    const page = await doc.getPage(p);
-    const view = page.view as number[];
-    pages.push({
-      page: p,
-      mediaBoxPt: pickBox(raw.boxes.media, p - 1) ?? [view[0], view[1], view[2], view[3]],
-      trimBoxPt: pickBox(raw.boxes.trim, p - 1),
-      bleedBoxPt: pickBox(raw.boxes.bleed, p - 1),
-      cropBoxPt: pickBox(raw.boxes.crop, p - 1),
-      artBoxPt: pickBox(raw.boxes.art, p - 1),
-      widthPt: view[2] - view[0],
-      heightPt: view[3] - view[1],
-    });
-  }
+  // On-demand rendering for pages beyond the initial window (deduped).
+  const pendingPages = new Map<number, Promise<boolean>>();
+  const ensurePage = (pageIdx: number): Promise<boolean> => {
+    const p = pageIdx + 1;
+    if (p < 1 || p > pageCount) return Promise.resolve(false);
+    if (previews[p - 1]) return Promise.resolve(true);
+    let job = pendingPages.get(p);
+    if (!job) {
+      job = renderAnalyzePage(p)
+        .then(() => true)
+        .catch(() => false)
+        .finally(() => { pendingPages.delete(p); });
+      pendingPages.set(p, job);
+    }
+    return job;
+  };
 
   // keep `doc` alive so the 2D view can re-render the current page at higher
   // resolution on deep zoom (avoids upscaling a fixed bitmap = jagged/blurry).
@@ -239,8 +249,11 @@ export async function analyzePdf(
   const dispose = () => { doc.destroy().catch(() => {}); };
 
   return {
-    pageCount, pages, raw, content, images, tac, previews,
+    pageCount, pages,
+    scan: bundle.scan,
+    aiArtboard: bundle.aiArtboard,
+    content, images, tac, previews,
     renderScale: renderScales[0] ?? 1, renderScales, notes,
-    renderPage, dispose,
+    renderPage, ensurePage, dispose,
   };
 }

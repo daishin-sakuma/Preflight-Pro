@@ -1,15 +1,19 @@
 'use client';
 
 // 3D rotatable paper preview (graphic-style): the finished (trimmed) piece
-// rendered onto a thin sheet you can drag-rotate / zoom, with front/back.
+// rendered onto a thin sheet you can drag-rotate / zoom, with front/back,
+// selectable paper finish (gloss / matte / uncoated) and fold simulation
+// (half fold / Z fold with an adjustable opening angle).
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
+import { OrbitControls, Center } from '@react-three/drei';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 
 export interface ViewCommand { cmd: 'front' | 'back' | 'reset'; n: number }
+export type PaperFinish = 'gloss' | 'matte' | 'uncoated';
+export type FoldMode = 'none' | 'half' | 'z';
 
 interface Props {
   front: HTMLCanvasElement;
@@ -19,49 +23,125 @@ interface Props {
   autoRotate: boolean;
   command: ViewCommand;
   stageColor?: string;   // pasteboard colour (theme-dependent)
+  finish?: PaperFinish;  // paper surface material
+  fold?: FoldMode;       // fold simulation
+  foldAngle?: number;    // opening angle in degrees (180 = flat)
   onFacing?: (facing: 'front' | 'back') => void; // which face is toward the camera
   // lets the page drive zoom in/out + fit (shared keyboard shortcuts with 2D)
   controlRef?: React.MutableRefObject<Zoom3DApi | null>;
 }
 
-function Paper({ front, back, wMm, hMm }: Pick<Props, 'front' | 'back' | 'wMm' | 'hMm'>) {
-  const frontTex = useMemo(() => {
-    const t = new THREE.CanvasTexture(front);
-    t.colorSpace = THREE.SRGBColorSpace;
-    t.anisotropy = 8;
-    return t;
-  }, [front]);
+// paper surface parameters per finish (meshPhysicalMaterial)
+const FINISH: Record<PaperFinish, { roughness: number; clearcoat: number; clearcoatRoughness: number }> = {
+  gloss: { roughness: 0.42, clearcoat: 0.6, clearcoatRoughness: 0.22 },
+  matte: { roughness: 0.82, clearcoat: 0.06, clearcoatRoughness: 0.6 },
+  uncoated: { roughness: 0.96, clearcoat: 0, clearcoatRoughness: 1 },
+};
+const EDGE = '#e8e8e6';
+const SHEET_T = 0.035;
 
-  const backTex = useMemo(() => {
-    if (!back) return null;
-    const t = new THREE.CanvasTexture(back);
-    t.colorSpace = THREE.SRGBColorSpace;
-    t.anisotropy = 8;
-    return t;
-  }, [back]);
+const makeTex = (src: HTMLCanvasElement) => {
+  const t = new THREE.CanvasTexture(src);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 8;
+  return t;
+};
 
+function Paper({ front, back, wMm, hMm, finish }: {
+  front: HTMLCanvasElement; back?: HTMLCanvasElement | null;
+  wMm: number; hMm: number; finish: PaperFinish;
+}) {
+  const frontTex = useMemo(() => makeTex(front), [front]);
+  const backTex = useMemo(() => (back ? makeTex(back) : null), [back]);
   useEffect(() => () => { frontTex.dispose(); backTex?.dispose(); }, [frontTex, backTex]);
 
   // scale: fit long edge to ~10 scene units
   const long = Math.max(wMm, hMm);
   const w = (wMm / long) * 10;
   const h = (hMm / long) * 10;
-  const t = 0.035;
+  const fp = FINISH[finish];
 
   return (
     <mesh castShadow>
-      <boxGeometry args={[w, h, t]} />
+      <boxGeometry args={[w, h, SHEET_T]} />
       {/* +x -x +y -y +z(front) -z(back) */}
-      <meshStandardMaterial attach="material-0" color="#e8e8e6" />
-      <meshStandardMaterial attach="material-1" color="#e8e8e6" />
-      <meshStandardMaterial attach="material-2" color="#e8e8e6" />
-      <meshStandardMaterial attach="material-3" color="#e8e8e6" />
-      <meshStandardMaterial attach="material-4" map={frontTex} roughness={0.85} />
+      <meshPhysicalMaterial attach="material-0" color={EDGE} roughness={0.9} />
+      <meshPhysicalMaterial attach="material-1" color={EDGE} roughness={0.9} />
+      <meshPhysicalMaterial attach="material-2" color={EDGE} roughness={0.9} />
+      <meshPhysicalMaterial attach="material-3" color={EDGE} roughness={0.9} />
+      <meshPhysicalMaterial attach="material-4" map={frontTex} roughness={fp.roughness}
+        clearcoat={fp.clearcoat} clearcoatRoughness={fp.clearcoatRoughness} />
       {backTex
-        ? <meshStandardMaterial attach="material-5" map={backTex} roughness={0.85} />
-        : <meshStandardMaterial attach="material-5" color="#fbfbf9" roughness={0.9} />}
+        ? <meshPhysicalMaterial attach="material-5" map={backTex} roughness={fp.roughness}
+            clearcoat={fp.clearcoat} clearcoatRoughness={fp.clearcoatRoughness} />
+        : <meshPhysicalMaterial attach="material-5" color="#fbfbf9" roughness={0.9} />}
     </mesh>
   );
+}
+
+// Folded sheet: the front artwork is split into vertical panels linked by a
+// hinge chain with alternating fold directions (2 panels = half fold,
+// 3 panels = Z fold). The back face of each panel shows the corresponding
+// region of the back page: viewed from behind, front panel i lines up with
+// back-canvas strip (panels-1-i).
+function FoldedPaper({ front, back, wMm, hMm, panels, angleDeg, finish }: {
+  front: HTMLCanvasElement; back?: HTMLCanvasElement | null;
+  wMm: number; hMm: number; panels: number; angleDeg: number; finish: PaperFinish;
+}) {
+  const parts = useMemo(() => {
+    const strip = (src: HTMLCanvasElement, stripIdx: number) => {
+      const pw = Math.max(1, Math.floor(src.width / panels));
+      const c = document.createElement('canvas');
+      c.width = pw; c.height = src.height;
+      c.getContext('2d')!.drawImage(src, stripIdx * pw, 0, pw, src.height, 0, 0, pw, src.height);
+      return makeTex(c);
+    };
+    return Array.from({ length: panels }, (_, i) => ({
+      front: strip(front, i),
+      back: back ? strip(back, panels - 1 - i) : null,
+    }));
+  }, [front, back, panels]);
+  useEffect(() => () => { parts.forEach((p) => { p.front.dispose(); p.back?.dispose(); }); }, [parts]);
+
+  const long = Math.max(wMm, hMm);
+  const w = (wMm / long) * 10;
+  const h = (hMm / long) * 10;
+  const pw = w / panels;
+  const foldRot = ((180 - angleDeg) * Math.PI) / 180;
+  const fp = FINISH[finish];
+
+  const panelMesh = (i: number) => (
+    <mesh castShadow position={[pw / 2, 0, 0]}>
+      <boxGeometry args={[pw, h, SHEET_T]} />
+      <meshPhysicalMaterial attach="material-0" color={EDGE} roughness={0.9} />
+      <meshPhysicalMaterial attach="material-1" color={EDGE} roughness={0.9} />
+      <meshPhysicalMaterial attach="material-2" color={EDGE} roughness={0.9} />
+      <meshPhysicalMaterial attach="material-3" color={EDGE} roughness={0.9} />
+      <meshPhysicalMaterial attach="material-4" map={parts[i].front} roughness={fp.roughness}
+        clearcoat={fp.clearcoat} clearcoatRoughness={fp.clearcoatRoughness} />
+      {parts[i].back
+        ? <meshPhysicalMaterial attach="material-5" map={parts[i].back} roughness={fp.roughness}
+            clearcoat={fp.clearcoat} clearcoatRoughness={fp.clearcoatRoughness} />
+        : <meshPhysicalMaterial attach="material-5" color="#fbfbf9" roughness={0.9} />}
+    </mesh>
+  );
+
+  // hinge chain: panel i's group sits at the right edge of panel i-1 and
+  // rotates around that vertical edge; directions alternate (half / Z fold)
+  const build = (i: number): React.ReactElement | null => {
+    if (i >= panels) return null;
+    const rot = i === 0 ? 0 : (i % 2 === 1 ? -foldRot : foldRot);
+    return (
+      <group position={i === 0 ? [-w / 2, 0, 0] : [pw, 0, 0]} rotation={[0, rot, 0]}>
+        {panelMesh(i)}
+        {build(i + 1)}
+      </group>
+    );
+  };
+
+  // <Center> recenters the folded assembly; key forces a re-measure when the
+  // fold shape changes
+  return <Center key={`${panels}:${Math.round(angleDeg)}`}>{build(0)}</Center>;
 }
 
 const MIN_DIST = 4;
@@ -208,7 +288,10 @@ function Rig({ autoRotate, command, wMm, hMm, onFacing, onZoomPct, apiRef }: {
   );
 }
 
-export default function Preview3D({ front, back, wMm, hMm, autoRotate, command, stageColor = '#454547', onFacing, controlRef }: Props) {
+export default function Preview3D({
+  front, back, wMm, hMm, autoRotate, command, stageColor = '#454547',
+  finish = 'matte', fold = 'none', foldAngle = 100, onFacing, controlRef,
+}: Props) {
   const [pct, setPct] = useState(100);
   const internalApi = useRef<Zoom3DApi | null>(null);
   // the page drives zoom/fit through the same ref the on-screen buttons use
@@ -224,7 +307,10 @@ export default function Preview3D({ front, back, wMm, hMm, autoRotate, command, 
         <ambientLight intensity={1.15} />
         <directionalLight position={[6, 8, 10]} intensity={1.5} />
         <directionalLight position={[-5, -3, -9]} intensity={0.8} />
-        <Paper front={front} back={back} wMm={wMm} hMm={hMm} />
+        {fold === 'none'
+          ? <Paper front={front} back={back} wMm={wMm} hMm={hMm} finish={finish} />
+          : <FoldedPaper front={front} back={back} wMm={wMm} hMm={hMm}
+              panels={fold === 'half' ? 2 : 3} angleDeg={foldAngle} finish={finish} />}
         <Rig autoRotate={autoRotate} command={command} wMm={wMm} hMm={hMm}
           onFacing={onFacing} onZoomPct={setPct} apiRef={api} />
       </Canvas>

@@ -1,4 +1,6 @@
-// Paper size presets (finished/trim size, mm).
+// Paper size presets (finished/trim size, mm) and print-shop criteria presets.
+
+import type { Settings } from './types.ts';
 
 export interface PaperPreset {
   id: string;
@@ -33,6 +35,24 @@ export function paperSizeMm(
   const short = Math.min(w, h), long = Math.max(w, h);
   return landscape ? { wMm: long, hMm: short } : { wMm: short, hMm: long };
 }
+
+// Print-shop criteria presets: one pick fills bleed / ink limit / resolution /
+// RGB policy at once. Values follow the guideline numbers commonly published
+// for standard coated offset work — specs change, so the UI reminds the user
+// to confirm against the shop's current guide.
+export interface ShopPreset {
+  id: string;
+  label: string;
+  apply: Partial<Settings>;
+}
+
+export const SHOP_PRESETS: ShopPreset[] = [
+  { id: 'graphic', label: 'Graphic — 3mm / 350dpi / TAC 300%', apply: { bleedMm: 3, minDpi: 350, tacLimit: 300, requireCmyk: true } },
+  { id: 'printpac', label: 'Printpac — 3mm / 350dpi / TAC 300%', apply: { bleedMm: 3, minDpi: 350, tacLimit: 300, requireCmyk: true } },
+  { id: 'raksul', label: 'Raksul — 3mm / 350dpi / TAC 300%', apply: { bleedMm: 3, minDpi: 350, tacLimit: 300, requireCmyk: true } },
+  { id: 'jp-uncoated', label: 'Uncoated stock — 3mm / 300dpi / TAC 250%', apply: { bleedMm: 3, minDpi: 300, tacLimit: 250, requireCmyk: true } },
+  { id: 'large-format', label: 'Large format / signage — 10mm / 150dpi / TAC 280%', apply: { bleedMm: 10, minDpi: 150, tacLimit: 280, requireCmyk: false } },
+];
 
 export const TAC_CHOICES = [250, 260, 280, 300, 310, 320, 350];
 export const DPI_CHOICES = [72, 100, 150, 200, 250, 300, 350, 400, 600];

@@ -35,17 +35,18 @@ export async function analyzeFile(
       fileSize: file.size,
       pageCount: r.pageCount,
       pages: r.pages,
-      scan: r.raw.scan,
+      scan: r.scan,
       content: r.content,
       images: r.images,
       tac: r.tac,
       previews: r.previews,
       renderScale: r.renderScale,
       renderScales: r.renderScales,
-      aiArtboardMm: r.raw.aiArtboard ?? undefined,
+      aiArtboardMm: r.aiArtboard ?? undefined,
       findings: [],
       notes: r.notes,
       renderPage: r.renderPage,
+      ensurePage: r.ensurePage,
       dispose: r.dispose,
       markers: [
         ...r.content.markers,
@@ -111,7 +112,8 @@ export async function analyzeFile(
   const info = kind === 'png' ? analyzePng(buf) : analyzeJpeg(buf);
 
   // Decode a small preview, pushed as close to the real browser limits as we can:
-  //  - CMYK JPEGs can't be decoded by any browser (format limit) → skip.
+  //  - CMYK JPEGs can't be decoded by the browser itself → wrap the JPEG in a
+  //    one-page PDF (DCTDecode passthrough) and let pdf.js decode it instead.
   //  - Everything else is attempted via resize-on-decode (createImageBitmap with
   //    resizeWidth/Height). For JPEG this uses DCT down-scaling, so even ~500 MP
   //    files decode straight to a small bitmap without hitting GPU-texture /
@@ -155,7 +157,53 @@ export async function analyzeFile(
     }
   };
 
-  const rawImg = (!isCmyk && !pngTooLarge) ? await decodePreview() : null;
+  // CMYK JPEG: browsers can't decode these, but pdf.js can — wrap the JPEG
+  // bytes (unmodified) in a minimal one-page PDF and render that. Adobe CMYK
+  // JPEGs store inverted samples, signalled by the APP14 marker → /Decode.
+  const decodeCmykJpeg = async (): Promise<HTMLCanvasElement | null> => {
+    try {
+      const [{ buildJpegPdf }, pdfjs, { ensurePdfWorker }] = await Promise.all([
+        import('./minipdf.ts'),
+        import('pdfjs-dist'),
+        import('./pdf/analyzePdf.ts'),
+      ]);
+      ensurePdfWorker();
+      const w = info.width || 1, h = info.height || 1;
+      const long = Math.max(w, h);
+      const fit = Math.min(1, 14000 / long); // stay under the 14400pt PDF page cap
+      const pdf = buildJpegPdf([{
+        jpeg: buf, pxW: w, pxH: h, wPt: w * fit, hPt: h * fit,
+        colorSpace: 'DeviceCMYK',
+        invertDecode: !!info.hasAdobeMarker,
+      }]);
+      const doc = await pdfjs.getDocument({ data: pdf }).promise;
+      try {
+        const page = await doc.getPage(1);
+        const targetLong = Math.min(2400, long);
+        const viewport = page.getViewport({ scale: targetLong / (long * fit) });
+        const c = document.createElement('canvas');
+        c.width = Math.max(1, Math.ceil(viewport.width));
+        c.height = Math.max(1, Math.ceil(viewport.height));
+        const ctx = c.getContext('2d', { willReadFrequently: true })!;
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, c.width, c.height);
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        return c;
+      } finally {
+        doc.destroy().catch(() => {});
+      }
+    } catch {
+      return null;
+    }
+  };
+
+  let rawImg: HTMLCanvasElement | null = null;
+  if (isCmyk) {
+    onProgress?.('Decoding CMYK JPEG…');
+    rawImg = await decodeCmykJpeg();
+  } else if (!pngTooLarge) {
+    rawImg = await decodePreview();
+  }
 
   let previewUnavailable: string | undefined;
   if (!rawImg) {
@@ -163,7 +211,7 @@ export async function analyzeFile(
       ? `${info.width.toLocaleString()}×${info.height.toLocaleString()}px, ~${Math.round(area / 1e6)} megapixels`
       : '';
     let reason: string;
-    if (isCmyk) reason = 'it is a CMYK JPEG (browsers can only decode RGB/grayscale images)';
+    if (isCmyk) reason = 'it is a CMYK JPEG this browser could not decode (even via the PDF decode path)';
     else if (pngTooLarge) reason = `it is a very large PNG (${px}) — beyond the memory a browser can use to decompress a PNG`;
     else if (px) reason = `the browser could not decode it at this size (${px}) — beyond this browser/GPU's limit`;
     else reason = 'the browser could not decode it';

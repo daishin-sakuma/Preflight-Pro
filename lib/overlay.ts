@@ -33,6 +33,58 @@ export interface OverlayArgs {
   scaleOverride?: number;   // px-per-pt of the target canvas (for hi-res re-renders)
 }
 
+// White-overprint simulation: overprint-enabled white objects vanish on press
+// (the background shows through instead). Approximate the printed result by
+// filling each detected white-overprint spot with the colour sampled from a
+// ring around it. Exact for flat backgrounds, crude over photos — the UI
+// labels it as a simulation. Returns the number of spots simulated.
+export function applyWhiteOverprintSim(
+  canvas: HTMLCanvasElement,
+  result: AnalysisResult,
+  pageIdx: number,
+  scale?: number,
+): number {
+  const geom = result.pages[pageIdx];
+  if (!geom) return 0;
+  const s = scale ?? pageRenderScale(result, pageIdx);
+  const vb = geom.viewBoxPt ?? geom.mediaBoxPt;
+  const spots = (result.markers ?? []).filter(
+    (m) => m.kind === 'white-op' && m.page === pageIdx + 1,
+  );
+  if (!spots.length) return 0;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+  let applied = 0;
+  for (const m of spots) {
+    const x = Math.round((m.rectPt.x - vb[0]) * s);
+    const yTop = Math.round(canvas.height - (m.rectPt.y + m.rectPt.h - vb[1]) * s);
+    const w = Math.max(2, Math.round(m.rectPt.w * s));
+    const h = Math.max(2, Math.round(m.rectPt.h * s));
+    const pad = Math.max(3, Math.round(Math.min(canvas.width, canvas.height) * 0.004));
+    const ox = Math.max(0, x - pad), oy = Math.max(0, yTop - pad);
+    const ow = Math.min(canvas.width - ox, w + pad * 2);
+    const oh = Math.min(canvas.height - oy, h + pad * 2);
+    if (ow <= 0 || oh <= 0) continue;
+    let r = 0, g = 0, b = 0, n = 0;
+    try {
+      const img = ctx.getImageData(ox, oy, ow, oh);
+      const d = img.data;
+      for (let py = 0; py < oh; py += 2) {
+        for (let px = 0; px < ow; px += 2) {
+          // ring only: skip pixels inside the spot itself
+          if (px >= x - ox && px < x - ox + w && py >= yTop - oy && py < yTop - oy + h) continue;
+          const i = (py * ow + px) * 4;
+          r += d[i]; g += d[i + 1]; b += d[i + 2]; n++;
+        }
+      }
+    } catch { continue; }
+    if (!n) continue;
+    ctx.fillStyle = `rgb(${Math.round(r / n)}, ${Math.round(g / n)}, ${Math.round(b / n)})`;
+    ctx.fillRect(Math.max(0, x), Math.max(0, yTop), w, h);
+    applied++;
+  }
+  return applied;
+}
+
 // Draws overlays onto `over` (does NOT clear it — the 2D view clears its
 // transparent overlay first; the 3D compositor draws on top of the artwork).
 export function renderOverlays(over: HTMLCanvasElement, args: OverlayArgs): void {
@@ -60,7 +112,8 @@ export function renderOverlays(over: HTMLCanvasElement, args: OverlayArgs): void
 
     // ---- TAC heat ----
     if (showTac) {
-      const heat = result.tac[pageIdx]?.heat;
+      // look up by page number — on-demand analyzed pages append out of order
+      const heat = result.tac.find((t) => t.page === pageIdx + 1)?.heat;
       if (heat) {
         const tmp = document.createElement('canvas');
         tmp.width = heat.width; tmp.height = heat.height;

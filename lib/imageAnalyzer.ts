@@ -49,6 +49,7 @@ export function analyzeJpeg(bytes: Uint8Array): ImageFileInfo {
   let width = 0, height = 0, components = 3;
   let dpi: number | null = null;
   let hasIcc = false;
+  let hasAdobe = false; // APP14: Adobe CMYK JPEGs store inverted samples
 
   let off = 2; // skip SOI
   while (off + 4 <= bytes.length) {
@@ -78,6 +79,9 @@ export function analyzeJpeg(bytes: Uint8Array): ImageFileInfo {
     } else if (marker === 0xe2) {
       const sig = String.fromCharCode(...bytes.subarray(dataOff, dataOff + 11));
       if (sig.startsWith('ICC_PROFILE')) hasIcc = true;
+    } else if (marker === 0xee) {
+      const sig = String.fromCharCode(...bytes.subarray(dataOff, dataOff + 5));
+      if (sig === 'Adobe') hasAdobe = true;
     }
     off = off + 2 + segLen;
   }
@@ -87,7 +91,7 @@ export function analyzeJpeg(bytes: Uint8Array): ImageFileInfo {
   else if (components === 3) colorSpace = 'rgb';
   else if (components === 4) colorSpace = 'cmyk'; // CMYK or YCCK (both CMYK-based)
 
-  return { format: 'jpeg', width, height, colorSpace, hasAlpha: false, embeddedDpi: dpi, hasIccProfile: hasIcc, iccName: null };
+  return { format: 'jpeg', width, height, colorSpace, hasAlpha: false, embeddedDpi: dpi, hasIccProfile: hasIcc, iccName: null, hasAdobeMarker: hasAdobe };
 }
 
 export function sniffImage(bytes: Uint8Array): 'png' | 'jpeg' | null {

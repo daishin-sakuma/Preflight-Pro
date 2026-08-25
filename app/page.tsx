@@ -8,9 +8,9 @@ import { PAPER_PRESETS, paperSizeMm } from '@/lib/presets';
 import type { PrecheckInfo } from '@/lib/estimateSize';
 import ResultsPanel, { worstSeverity } from '@/components/ResultsPanel';
 import Preview2D, { type Preview2DHandle } from '@/components/Preview2D';
-import { MARKER_STYLE, renderOverlays } from '@/lib/overlay';
+import { MARKER_STYLE, renderOverlays, applyWhiteOverprintSim } from '@/lib/overlay';
 import SettingsForm from '@/components/SettingsForm';
-import type { ViewCommand, Zoom3DApi } from '@/components/Preview3D';
+import type { ViewCommand, Zoom3DApi, PaperFinish, FoldMode } from '@/components/Preview3D';
 
 const Preview3D = dynamic(() => import('@/components/Preview3D'), { ssr: false });
 
@@ -104,7 +104,7 @@ const ssFactor = (w: number, h: number) =>
 
 function compositedFullPage(
   result: AnalysisResult, settings: Settings, pageIdx: number,
-  opts: { showTac: boolean; showGuides: boolean; showDims: boolean; showBleed: boolean; markerKind: MarkerKind | null },
+  opts: { showTac: boolean; showGuides: boolean; showDims: boolean; showBleed: boolean; markerKind: MarkerKind | null; simWhiteOp: boolean },
 ): { canvas: HTMLCanvasElement; wMm: number; hMm: number } | null {
   const src = result.previews[pageIdx];
   const geom = result.pages[pageIdx];
@@ -116,7 +116,9 @@ function compositedFullPage(
   const ctx = out.getContext('2d')!;
   ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(src, 0, 0, out.width, out.height);
-  renderOverlays(out, { result, settings, pageIdx, ...opts, scaleOverride: pageRenderScale(result, pageIdx) * k });
+  const { simWhiteOp, ...overlayOpts } = opts;
+  if (simWhiteOp) applyWhiteOverprintSim(out, result, pageIdx, pageRenderScale(result, pageIdx) * k);
+  renderOverlays(out, { result, settings, pageIdx, ...overlayOpts, scaleOverride: pageRenderScale(result, pageIdx) * k });
   const vb = geom.viewBoxPt ?? geom.mediaBoxPt;
   const wMm = (vb[2] - vb[0]) * MM_PER_PT;
   return {
@@ -166,9 +168,15 @@ export default function Home() {
   const [showDims, setShowDims] = useState(true);
   const [showBleed, setShowBleed] = useState(true);
   const [markerKind, setMarkerKind] = useState<MarkerKind | null>(null);
+  const [simWhiteOp, setSimWhiteOp] = useState(false); // white-overprint print simulation
   const [autoRotate, setAutoRotate] = useState(false);
   const [command, setCommand] = useState<ViewCommand>({ cmd: 'reset', n: 0 });
   const [facing3d, setFacing3d] = useState<'front' | 'back'>('front'); // which face the 3D camera sees
+  const [paperFinish, setPaperFinish] = useState<PaperFinish>('matte'); // 3D paper surface
+  const [fold, setFold] = useState<FoldMode>('none');                   // 3D fold simulation
+  const [foldAngle, setFoldAngle] = useState(100);                      // fold opening angle (deg)
+  const [pageLoading, setPageLoading] = useState(false); // on-demand page render in flight
+  const [exporting, setExporting] = useState(false);     // report download in flight
 
   // Return to the top (upload) page — used by the header logo.
   const goHome = useCallback(() => {
@@ -197,10 +205,12 @@ export default function Home() {
 
   // Page turning (works in both 2D and 3D; also bound to ← / → keys).
   // Wraps around: past the last page → first, before the first → last, so a
-  // 2-page front/back can be flipped repeatedly with one arrow. Navigation is
-  // limited to pages that actually have a rendered preview (long documents are
-  // only analyzed/rendered up to the first N pages).
-  const viewablePages = result ? Math.min(result.pageCount, result.previews.length) : 0;
+  // 2-page front/back can be flipped repeatedly with one arrow. When the
+  // result supports on-demand rendering (PDF), every page is navigable and
+  // renders as you reach it; otherwise navigation stays within the previews.
+  const viewablePages = result
+    ? (result.ensurePage ? result.pageCount : Math.min(result.pageCount, result.previews.length))
+    : 0;
   const goPage = useCallback((delta: number) => {
     if (viewablePages > 1) {
       setPageIdx((i) => ((i + delta) % viewablePages + viewablePages) % viewablePages);
@@ -240,6 +250,7 @@ export default function Home() {
         case 'd': case 'D': setShowDims((v) => !v); break;         // dimensions
         case 'b': case 'B': setShowBleed((v) => !v); break;        // bleed
         case 'i': case 'I': setShowTac((v) => !v); break;          // ink
+        case 'o': case 'O': setSimWhiteOp((v) => !v); break;       // white-overprint sim
         // ---- 3D only ----
         case ' ': if (tab === '3d') { e.preventDefault(); setAutoRotate((v) => !v); } break; // spin
         case 'f': case 'F': if (tab === '3d') setCommand((c) => ({ cmd: facing3d === 'back' ? 'front' : 'back', n: c.n + 1 })); break; // flip front/back
@@ -270,7 +281,8 @@ export default function Home() {
     setTab('2d');
     if (result) {
       const first = result.markers.find((m) => m.kind === f.markerKind);
-      if (first && first.page - 1 < result.previews.length) setPageIdx(first.page - 1);
+      const navigable = result.ensurePage ? result.pageCount : result.previews.length;
+      if (first && first.page - 1 < navigable) setPageIdx(first.page - 1);
     }
   }, [markerKind, result]);
 
@@ -278,6 +290,7 @@ export default function Home() {
     fileRef.current = file;
     setPhase('analyzing');
     setMarkerKind(null);
+    setSimWhiteOp(false);
     setProgress('Loading file…');
     try {
       const { analyzeFile } = await import('@/lib/analyze');
@@ -342,8 +355,9 @@ export default function Home() {
     void (async () => {
       try {
         const buf = new Uint8Array(await f.arrayBuffer());
-        const { precheckFile } = await import('@/lib/estimateSize');
-        setPre(precheckFile(buf, settings.bleedMm));
+        // byte scanning runs in a Web Worker so huge files don't freeze the UI
+        const { precheckOffThread } = await import('@/lib/analysisWorker');
+        setPre(await precheckOffThread(buf, settings.bleedMm));
       } catch {
         setPre(null);
       } finally {
@@ -463,10 +477,10 @@ export default function Home() {
   }, [result]);
 
   // overlays shown in 3D too: full page (bleed included) with composited guides
-  const overlaysOn = showGuides || showDims || showBleed || showTac || !!markerKind;
+  const overlaysOn = showGuides || showDims || showBleed || showTac || !!markerKind || simWhiteOp;
   const overlayOpts = useMemo(
-    () => ({ showTac, showGuides, showDims, showBleed, markerKind }),
-    [showTac, showGuides, showDims, showBleed, markerKind],
+    () => ({ showTac, showGuides, showDims, showBleed, markerKind, simWhiteOp }),
+    [showTac, showGuides, showDims, showBleed, markerKind, simWhiteOp],
   );
   const paper3d = useMemo(() => {
     if (!result) return null;
@@ -485,6 +499,43 @@ export default function Home() {
     if (overlaysOn) return compositedFullPage(result, settings, backPageIdx, overlayOpts)?.canvas ?? null;
     return croppedToTrim(result, backPageIdx)?.canvas ?? null;
   }, [result, backPageIdx, overlaysOn, overlayOpts, settings]);
+
+  // On-demand page rendering (PDF, pages beyond the initially analyzed window):
+  // when the shown page (or its 3D back face) has no preview yet, render it,
+  // then re-issue the result reference so the previews propagate.
+  useEffect(() => {
+    if (phase !== 'result' || !result?.ensurePage) return;
+    const need = [pageIdx, backPageIdx].filter(
+      (i): i is number => i !== null && i < result.pageCount && !result.previews[i],
+    );
+    if (!need.length) return;
+    let cancelled = false;
+    setPageLoading(true);
+    void (async () => {
+      const rendered = await Promise.all(need.map((i) => result.ensurePage!(i)));
+      if (cancelled) return;
+      setPageLoading(false);
+      // only re-render on success — a failed page would otherwise loop forever
+      if (rendered.some(Boolean)) setResult((r) => (r ? { ...r } : r));
+    })();
+    return () => { cancelled = true; };
+  }, [phase, result, pageIdx, backPageIdx]);
+
+  // whether this file has any white-overprint spots to simulate
+  const hasWhiteOp = !!result?.markers.some((m) => m.kind === 'white-op');
+
+  // report download (fully client-side: canvases → JPEG pages → PDF/PNG)
+  const exportReport = useCallback(async (kind: 'pdf' | 'png') => {
+    if (!result || exporting) return;
+    setExporting(true);
+    try {
+      const report = await import('@/lib/report');
+      if (kind === 'pdf') await report.downloadReportPdf(result, settings);
+      else await report.downloadReportPng(result, settings);
+    } finally {
+      setExporting(false);
+    }
+  }, [result, settings, exporting]);
 
   return (
     <>
@@ -881,6 +932,14 @@ export default function Home() {
               {summary.warns > 0 && <span className="chip warn"><i />Warnings <b>{summary.warns}</b></span>}
               <span className="chip ok"><i />OK <b>{summary.oks}</b></span>
             </span>
+            <span className="sbActions">
+              <button className="btn ghost small" disabled={exporting} onClick={() => exportReport('pdf')}>
+                {exporting ? 'Exporting…' : 'PDF report'}
+              </button>
+              <button className="btn ghost small" disabled={exporting} onClick={() => exportReport('png')}>
+                PNG
+              </button>
+            </span>
           </div>
 
           <div className="previewCol" ref={previewColRef}>
@@ -922,11 +981,14 @@ export default function Home() {
                   autoRotate={autoRotate}
                   command={command}
                   stageColor={theme === 'light' ? '#b9bcc2' : '#454547'}
+                  finish={paperFinish}
+                  fold={fold}
+                  foldAngle={foldAngle}
                   onFacing={setFacing3d}
                   controlRef={preview3dApiRef}
                 />
               )}
-              {tab === '2d' && (
+              {tab === '2d' && result.previews[pageIdx] && (
                 <Preview2D
                   ref={preview2dRef}
                   result={result}
@@ -937,8 +999,16 @@ export default function Home() {
                   showDims={showDims}
                   showBleed={showBleed}
                   markerKind={markerKind}
+                  simWhiteOp={simWhiteOp}
                   finished={!overlaysOn}
                 />
+              )}
+              {pageLoading && !result.previews[pageIdx] && (
+                <div className="pageLoading" role="status" aria-label="Rendering page">
+                  <svg className="orbit" viewBox="25 25 50 50">
+                    <circle className="orbitPath" cx="50" cy="50" r="20" fill="none" />
+                  </svg>
+                </div>
               )}
               {result.pageCount > 1 && (
                 <>
@@ -1004,6 +1074,36 @@ export default function Home() {
                 onClick={() => setShowTac((v) => !v)}>
                 Ink (over {settings.tacLimit}%)
               </button>
+              {hasWhiteOp && (
+                <button className={`btn ghost small ${simWhiteOp ? 'active' : ''}`}
+                  onClick={() => setSimWhiteOp((v) => !v)}
+                  title="Simulate the printed result: white objects set to overprint disappear">
+                  White-op sim
+                </button>
+              )}
+              {tab === '3d' && (
+                <>
+                  <span className="sep" />
+                  <select className="ctlSelect" value={paperFinish} title="Paper finish"
+                    onChange={(e) => setPaperFinish(e.target.value as PaperFinish)}>
+                    <option value="gloss">Gloss coated</option>
+                    <option value="matte">Matte coated</option>
+                    <option value="uncoated">Uncoated</option>
+                  </select>
+                  <select className="ctlSelect" value={fold} title="Fold simulation"
+                    onChange={(e) => setFold(e.target.value as FoldMode)}>
+                    <option value="none">No fold</option>
+                    <option value="half">Half fold</option>
+                    <option value="z">Z fold</option>
+                  </select>
+                  {fold !== 'none' && (
+                    <input className="ctlRange" type="range" min={40} max={180} step={1}
+                      value={foldAngle} title={`Fold angle ${foldAngle}°`}
+                      aria-label="Fold opening angle"
+                      onChange={(e) => setFoldAngle(+e.target.value)} />
+                  )}
+                </>
+              )}
               {markerKind && (
                 <button className="btn ghost small markerClear"
                   style={{ borderColor: MARKER_STYLE[markerKind].color, color: MARKER_STYLE[markerKind].color }}
@@ -1032,6 +1132,12 @@ export default function Home() {
                 <span className="key"><span className="swatch" style={{ border: '2px dashed #0d9488', background: 'transparent' }} />Safe area ({settings.safeMarginMm}mm inside)</span>
                 <span className="key"><span className="swatch" style={{ border: '2px solid #dc2626', background: 'transparent' }} />Low-resolution image</span>
                 {showTac && <span className="key"><span className="swatch" style={{ background: 'rgba(255,40,40,.75)' }} />Total ink over {settings.tacLimit}% (est.)</span>}
+                {simWhiteOp && (
+                  <span className="key">
+                    <span className="swatch" style={{ border: `2px solid ${MARKER_STYLE['white-op'].color}`, background: 'transparent' }} />
+                    White-overprint objects removed (simulated, approximate)
+                  </span>
+                )}
                 {markerKind && (
                   <span className="key">
                     <span className="swatch" style={{ border: `2.5px solid ${MARKER_STYLE[markerKind].color}`, background: 'transparent' }} />
@@ -1084,6 +1190,7 @@ export default function Home() {
                 <div className="scRow"><span><kbd>D</kbd></span> Toggle dimensions</div>
                 <div className="scRow"><span><kbd>B</kbd></span> Toggle bleed</div>
                 <div className="scRow"><span><kbd>I</kbd></span> Toggle ink overlay</div>
+                <div className="scRow"><span><kbd>O</kbd></span> White-overprint sim</div>
                 <div className="scRow"><span><kbd>Esc</kbd></span> Clear “locate” markers</div>
               </div>
               <div className="scGroup">

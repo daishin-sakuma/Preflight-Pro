@@ -298,6 +298,7 @@ button { font-family: inherit; cursor: pointer; }
   color: var(--accent-strong);
   border-color: var(--accent-strong);
 }
+.btn:disabled { opacity: 0.5; cursor: default; }
 
 /* settings form — compact CC property rows */
 .formRow {
@@ -506,7 +507,10 @@ input[type="number"] { width: 76px; min-width: 0; }
   color: var(--text);
   border: 1px solid var(--border);
   background: var(--panel);
+  flex-wrap: wrap;  /* report actions wrap below the chips on narrow screens */
 }
+/* report download actions at the right edge of the summary banner */
+.sbActions { display: flex; align-items: center; gap: var(--space-4); }
 /* subtle severity tint — restrained, not a loud coloured banner */
 .summaryBanner.pass { background: color-mix(in srgb, var(--ok) 6%, var(--panel)); border-color: color-mix(in srgb, var(--ok) 22%, var(--border)); }
 .summaryBanner.warn { background: color-mix(in srgb, var(--warn) 7%, var(--panel)); border-color: color-mix(in srgb, var(--warn) 24%, var(--border)); }
@@ -696,6 +700,13 @@ input[type="number"] { width: 76px; min-width: 0; }
 .overlayBox { position: absolute; pointer-events: none; }
 
 .preview3dWrap { position: relative; width: 100%; height: 100%; }
+/* on-demand page render indicator (pages beyond the analyzed window) */
+.pageLoading {
+  position: absolute; inset: 0; z-index: 5;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none;
+}
+.pageLoading .orbit { margin: 0; }
 .zoomCtl {
   position: absolute; top: var(--space-5); right: var(--space-5);
   z-index: 6;
@@ -725,6 +736,16 @@ input[type="number"] { width: 76px; min-width: 0; }
   background: var(--panel-2); flex-wrap: wrap;
 }
 .previewCtrl .sep { width: 1px; height: 20px; background: var(--border-strong); margin: 0 var(--space-2); }
+/* compact selects / slider inside the preview control bar (paper finish, fold) */
+.previewCtrl .ctlSelect {
+  min-width: 0;
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--fs-sm);
+}
+.previewCtrl .ctlRange {
+  width: 96px;
+  accent-color: var(--accent);
+}
 .spinToggle { display: inline-flex; align-items: center; gap: var(--space-3); }
 .spinToggle svg { width: 12px; height: 12px; display: block; flex: 0 0 12px; }
 .previewCtrl .note { font-size: var(--fs-2xs); color: var(--subtle); margin-left: auto; }

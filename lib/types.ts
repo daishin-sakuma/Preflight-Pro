@@ -129,6 +129,8 @@ export interface ImageFileInfo {
   embeddedDpi: number | null;
   hasIccProfile: boolean;
   iccName?: string | null;
+  // JPEG: Adobe APP14 marker present (Adobe CMYK JPEGs store inverted samples)
+  hasAdobeMarker?: boolean;
 }
 
 export interface AnalysisResult {
@@ -158,6 +160,9 @@ export interface AnalysisResult {
   markers: Marker[];               // all locatable problem spots (2D preview)
   // re-render a page at an arbitrary scale (px per pt) for crisp deep zoom (PDF only)
   renderPage?: (pageIdx: number, scale: number) => Promise<HTMLCanvasElement | null>;
+  // render/analyze a page beyond the initially analyzed window on demand (PDF
+  // only); resolves true once the page's preview is available
+  ensurePage?: (pageIdx: number) => Promise<boolean>;
   dispose?: () => void;            // release the retained pdf.js document
 }
 

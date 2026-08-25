@@ -13,7 +13,7 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import type { AnalysisResult, MarkerKind, PageGeom, Settings } from '@/lib/types';
 import { pageRenderScale } from '@/lib/types';
-import { renderOverlays, MARKER_STYLE } from '@/lib/overlay';
+import { renderOverlays, applyWhiteOverprintSim, MARKER_STYLE } from '@/lib/overlay';
 
 export { MARKER_STYLE };
 
@@ -32,6 +32,7 @@ interface Props {
   showDims: boolean;               // dimension annotations (寸法表示)
   showBleed: boolean;              // bleed-zone shading + bleed dimensions
   markerKind: MarkerKind | null;   // active problem-spot overlay
+  simWhiteOp: boolean;             // simulate white-overprint objects vanishing
   finished: boolean;               // all overlays off → show the trimmed finished piece
 }
 
@@ -55,7 +56,7 @@ function cropToTrim(src: HTMLCanvasElement, geom: PageGeom, scale: number): HTML
 }
 
 const Preview2D = forwardRef<Preview2DHandle, Props>(function Preview2D(
-  { result, settings, pageIdx, showTac, showGuides, showDims, showBleed, markerKind, finished }, ref,
+  { result, settings, pageIdx, showTac, showGuides, showDims, showBleed, markerKind, simWhiteOp, finished }, ref,
 ) {
   const baseRef = useRef<HTMLCanvasElement>(null);
   const overRef = useRef<HTMLCanvasElement>(null);
@@ -66,6 +67,9 @@ const Preview2D = forwardRef<Preview2DHandle, Props>(function Preview2D(
   const view = useRef({ z: 1, fitZ: 1, tx: 0, ty: 0 });
   const [pct, setPct] = useState(100);
   const drag = useRef<{ x: number; y: number } | null>(null);
+  // touch: active pointers + pinch baseline (2-finger pinch zoom / pan)
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const pinch = useRef<{ dist: number; mx: number; my: number } | null>(null);
 
   // base (as-analyzed) scale of the current page — pages can differ when the
   // document mixes page sizes
@@ -247,6 +251,7 @@ const Preview2D = forwardRef<Preview2DHandle, Props>(function Preview2D(
     base.width = src.width; base.height = src.height;
     over.width = src.width; over.height = src.height;
     base.getContext('2d')!.drawImage(src, 0, 0);
+    if (simWhiteOp && !finished) applyWhiteOverprintSim(base, result, pageIdx, scale);
     l.style.width = `${src.width}px`;
     l.style.height = `${src.height}px`;
 
@@ -263,7 +268,7 @@ const Preview2D = forwardRef<Preview2DHandle, Props>(function Preview2D(
     if (!finished) {
       renderOverlays(over, { result, settings, pageIdx, showTac, showGuides, showDims, showBleed, markerKind, scaleOverride: scale });
     }
-  }, [result, settings, pageIdx, showTac, showGuides, showDims, showBleed, markerKind, finished, loadedScale, fit, apply, setSmooth]);
+  }, [result, settings, pageIdx, showTac, showGuides, showDims, showBleed, markerKind, simWhiteOp, finished, loadedScale, fit, apply, setSmooth]);
 
 
   return (
@@ -271,20 +276,51 @@ const Preview2D = forwardRef<Preview2DHandle, Props>(function Preview2D(
       className="stage2d zoomable"
       ref={viewportRef}
       onPointerDown={(e) => {
-        if (e.button !== 0) return;
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
         setSmooth(false); // dragging is instant even right after a button zoom
-        drag.current = { x: e.clientX, y: e.clientY };
+        pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
         (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
+        if (pointers.current.size === 2) {
+          // second finger down → switch from drag to pinch
+          const [a, b] = [...pointers.current.values()];
+          pinch.current = { dist: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
+          drag.current = null;
+        } else if (pointers.current.size === 1) {
+          drag.current = { x: e.clientX, y: e.clientY };
+        }
       }}
       onPointerMove={(e) => {
-        if (!drag.current) return;
-        view.current.tx += e.clientX - drag.current.x;
-        view.current.ty += e.clientY - drag.current.y;
-        drag.current = { x: e.clientX, y: e.clientY };
-        apply();
+        if (!pointers.current.has(e.pointerId)) return;
+        pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (pointers.current.size >= 2 && pinch.current) {
+          // pinch: zoom around the midpoint, pan with the midpoint drift
+          const [a, b] = [...pointers.current.values()];
+          const dist = Math.hypot(a.x - b.x, a.y - b.y);
+          const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+          view.current.tx += mx - pinch.current.mx;
+          view.current.ty += my - pinch.current.my;
+          const r = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+          zoomAt(mx - r.left, my - r.top, pinch.current.dist > 0 ? dist / pinch.current.dist : 1);
+          pinch.current = { dist, mx, my };
+        } else if (drag.current) {
+          view.current.tx += e.clientX - drag.current.x;
+          view.current.ty += e.clientY - drag.current.y;
+          drag.current = { x: e.clientX, y: e.clientY };
+          apply();
+        }
       }}
-      onPointerUp={() => { drag.current = null; }}
-      onPointerCancel={() => { drag.current = null; }}
+      onPointerUp={(e) => {
+        pointers.current.delete(e.pointerId);
+        pinch.current = null;
+        // one finger left → continue as a plain drag from its current spot
+        const rest = [...pointers.current.values()];
+        drag.current = rest.length === 1 ? { x: rest[0].x, y: rest[0].y } : null;
+      }}
+      onPointerCancel={(e) => {
+        pointers.current.delete(e.pointerId);
+        pinch.current = null;
+        drag.current = null;
+      }}
     >
       <div className="zoomLayer" ref={layerRef}>
         <canvas ref={baseRef} style={{ display: 'block', background: '#fff' }} />

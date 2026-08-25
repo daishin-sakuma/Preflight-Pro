@@ -4,7 +4,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { Settings } from '@/lib/types';
-import { PAPER_PRESETS, TAC_CHOICES, DPI_CHOICES, SCALE_CHOICES } from '@/lib/presets';
+import { PAPER_PRESETS, SHOP_PRESETS, TAC_CHOICES, DPI_CHOICES, SCALE_CHOICES } from '@/lib/presets';
 
 interface Props {
   settings: Settings;
@@ -51,8 +51,33 @@ export default function SettingsForm({ settings, onChange: set }: Props) {
   const showBleedCustom = bleedCustom || !BLEED_CHOICES.includes(settings.bleedMm);
   const showScaleCustom = scaleCustom || !SCALE_CHOICES.includes(settings.scale);
   const fmtScale = (v: number) => (v === 1 ? '1:1 (full size)' : `1:${v}`);
+
+  // Shop preset: one pick fills bleed / ink limit / resolution / RGB policy.
+  // The selection stays shown only while every applied value still matches, so
+  // manually tweaking a field naturally reverts the select to "manual".
+  const [shopId, setShopId] = useState('');
+  const activeShop = SHOP_PRESETS.find((p) => p.id === shopId);
+  const shopStillMatches = !!activeShop &&
+    Object.entries(activeShop.apply).every(([k, v]) => settings[k as keyof Settings] === v);
+
   return (
     <>
+      <div className="formRow">
+        <label>Shop preset<span className="hint">Published guideline values — confirm with your shop</span></label>
+        <select
+          value={shopStillMatches ? shopId : ''}
+          onChange={(e) => {
+            const p = SHOP_PRESETS.find((x) => x.id === e.target.value);
+            setShopId(p?.id ?? '');
+            if (!p) return;
+            for (const [k, v] of Object.entries(p.apply)) set(k as keyof Settings, v as never);
+            // presets pick concrete values, so drop any sticky Custom… modes
+            setTacCustom(false); setDpiCustom(false); setBleedCustom(false);
+          }}>
+          <option value="">None (manual)</option>
+          {SHOP_PRESETS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+        </select>
+      </div>
       <div className="formRow">
         <label>Finished size</label>
         <select

@@ -42,7 +42,8 @@ export interface PdfAnalysis {
   images: PlacedImage[];
   tac: TacResult[];
   previews: HTMLCanvasElement[];
-  renderScale: number;
+  renderScale: number;         // px per pt of the first analyzed page
+  renderScales: number[];      // per-page px-per-pt (mixed page sizes differ)
   notes: string[];
   renderPage: (pageIdx: number, scale: number) => Promise<HTMLCanvasElement | null>;
   dispose: () => void;
@@ -85,7 +86,7 @@ export async function analyzePdf(
   const images: PlacedImage[] = [];
   const tac: TacResult[] = [];
   const previews: HTMLCanvasElement[] = [];
-  let renderScale = 1;
+  const renderScales: number[] = [];
 
   const maxAnalyzePages = Math.min(pageCount, 8);
   if (pageCount > maxAnalyzePages) {
@@ -116,7 +117,7 @@ export async function analyzePdf(
     // preview stage displays them large / zoomed. Cap at 10x for tiny pages.
     const longEdge = Math.max(geom.widthPt, geom.heightPt);
     const scale = Math.min(10, Math.max(0.5, 2200 / longEdge));
-    renderScale = scale;
+    renderScales.push(scale); // recorded per page — mixed page sizes get different scales
     const viewport = page.getViewport({ scale });
     const canvas = document.createElement('canvas');
     canvas.width = Math.ceil(viewport.width);
@@ -238,7 +239,8 @@ export async function analyzePdf(
   const dispose = () => { doc.destroy().catch(() => {}); };
 
   return {
-    pageCount, pages, raw, content, images, tac, previews, renderScale, notes,
+    pageCount, pages, raw, content, images, tac, previews,
+    renderScale: renderScales[0] ?? 1, renderScales, notes,
     renderPage, dispose,
   };
 }

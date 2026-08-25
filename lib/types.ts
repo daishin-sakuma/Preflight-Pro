@@ -143,7 +143,10 @@ export interface AnalysisResult {
   tac: TacResult[];
   imageInfo?: ImageFileInfo;
   previews: HTMLCanvasElement[];   // rendered page previews (index = page-1)
-  renderScale: number;             // px per pt of previews
+  renderScale: number;             // px per pt of previews (first analyzed page)
+  // per-page px-per-pt: pages render at ~2200px on the long edge, so documents
+  // with mixed page sizes get a different scale per page
+  renderScales?: number[];
   // true finished size from the Illustrator artboard (XMP), used when the PDF
   // page was clamped to the 14400pt (5080mm) ceiling for large-format files
   aiArtboardMm?: { wMm: number; hMm: number };
@@ -189,3 +192,8 @@ export const DEFAULT_SETTINGS: Settings = {
 
 export const MM_PER_PT = 25.4 / 72;
 export const PT_PER_MM = 72 / 25.4;
+
+// px-per-pt of a specific page's preview (mixed page sizes render at different scales)
+export const pageRenderScale = (
+  r: Pick<AnalysisResult, 'renderScale' | 'renderScales'>, pageIdx: number,
+): number => r.renderScales?.[pageIdx] ?? r.renderScale;

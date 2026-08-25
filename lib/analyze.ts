@@ -41,6 +41,7 @@ export async function analyzeFile(
       tac: r.tac,
       previews: r.previews,
       renderScale: r.renderScale,
+      renderScales: r.renderScales,
       aiArtboardMm: r.raw.aiArtboard ?? undefined,
       findings: [],
       notes: r.notes,
@@ -182,7 +183,9 @@ export async function analyzeFile(
   // image's own aspect (contain, centered on white). This makes the preview
   // reflect the chosen size/orientation while never stretching the artwork; a
   // letterbox appears when the image aspect differs from the order (flagged by
-  // the aspect-ratio check).
+  // the aspect-ratio check). When rotating the image 90° fits the ordered
+  // orientation better (e.g. a landscape photo on a portrait order), it is
+  // composited rotated — matching how the resolution check judges it.
   let canvas: HTMLCanvasElement | null = null;
   if (rawImg) {
     const LONG = 2400;
@@ -194,10 +197,22 @@ export async function analyzeFile(
     const pctx = page.getContext('2d', { willReadFrequently: true })!;
     pctx.fillStyle = '#fff';
     pctx.fillRect(0, 0, cw, ch);
-    const sc = Math.min(cw / rawImg.width, ch / rawImg.height); // contain
-    const dw = rawImg.width * sc, dh = rawImg.height * sc;
+    const fitSc = (iw: number, ih: number) => Math.min(cw / iw, ch / ih); // contain
+    const rotate = fitSc(rawImg.height, rawImg.width) > fitSc(rawImg.width, rawImg.height);
     pctx.imageSmoothingEnabled = true; pctx.imageSmoothingQuality = 'high';
-    pctx.drawImage(rawImg, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
+    if (rotate) {
+      const sc = fitSc(rawImg.height, rawImg.width);
+      const dw = rawImg.width * sc, dh = rawImg.height * sc; // pre-rotation size
+      pctx.save();
+      pctx.translate(cw / 2, ch / 2);
+      pctx.rotate(Math.PI / 2);
+      pctx.drawImage(rawImg, -dw / 2, -dh / 2, dw, dh);
+      pctx.restore();
+    } else {
+      const sc = fitSc(rawImg.width, rawImg.height);
+      const dw = rawImg.width * sc, dh = rawImg.height * sc;
+      pctx.drawImage(rawImg, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
+    }
     canvas = page;
   }
 

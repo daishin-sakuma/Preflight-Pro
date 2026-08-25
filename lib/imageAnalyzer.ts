@@ -49,7 +49,6 @@ export function analyzeJpeg(bytes: Uint8Array): ImageFileInfo {
   let width = 0, height = 0, components = 3;
   let dpi: number | null = null;
   let hasIcc = false;
-  let adobeTransform: number | null = null;
 
   let off = 2; // skip SOI
   while (off + 4 <= bytes.length) {
@@ -79,11 +78,6 @@ export function analyzeJpeg(bytes: Uint8Array): ImageFileInfo {
     } else if (marker === 0xe2) {
       const sig = String.fromCharCode(...bytes.subarray(dataOff, dataOff + 11));
       if (sig.startsWith('ICC_PROFILE')) hasIcc = true;
-    } else if (marker === 0xee) {
-      const sig = String.fromCharCode(...bytes.subarray(dataOff, dataOff + 5));
-      if (sig === 'Adobe') adobeTransform = bytes[dataOff + 11 - 4 + 4] ?? null; // transform byte at dataOff+7? keep simple below
-      // Adobe APP14: [Adobe][version 2][flags0 2][flags1 2][transform 1]
-      adobeTransform = bytes[dataOff + 5 + 6] ?? null;
     }
     off = off + 2 + segLen;
   }
@@ -92,7 +86,6 @@ export function analyzeJpeg(bytes: Uint8Array): ImageFileInfo {
   if (components === 1) colorSpace = 'gray';
   else if (components === 3) colorSpace = 'rgb';
   else if (components === 4) colorSpace = 'cmyk'; // CMYK or YCCK (both CMYK-based)
-  void adobeTransform;
 
   return { format: 'jpeg', width, height, colorSpace, hasAlpha: false, embeddedDpi: dpi, hasIccProfile: hasIcc, iccName: null };
 }

@@ -12,6 +12,7 @@
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import type { AnalysisResult, MarkerKind, PageGeom, Settings } from '@/lib/types';
+import { pageRenderScale } from '@/lib/types';
 import { renderOverlays, MARKER_STYLE } from '@/lib/overlay';
 
 export { MARKER_STYLE };
@@ -66,10 +67,14 @@ const Preview2D = forwardRef<Preview2DHandle, Props>(function Preview2D(
   const [pct, setPct] = useState(100);
   const drag = useRef<{ x: number; y: number } | null>(null);
 
+  // base (as-analyzed) scale of the current page — pages can differ when the
+  // document mixes page sizes
+  const baseScale = pageRenderScale(result, pageIdx);
+
   // current displayed resolution (px per pt). Mirrored to state so the draw
   // effect redraws at the right scale after a re-render swaps the base bitmap.
-  const srcScale = useRef(result.renderScale);
-  const [loadedScale, setLoadedScale] = useState(result.renderScale);
+  const srcScale = useRef(baseScale);
+  const [loadedScale, setLoadedScale] = useState(baseScale);
   const hiResCanvas = useRef<HTMLCanvasElement | null>(null); // current full-page hi-res render (or null = base preview)
   const hiResToken = useRef(0);                               // cancels stale async renders
   const hiResTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -108,7 +113,7 @@ const Preview2D = forwardRef<Preview2DHandle, Props>(function Preview2D(
   const maxScale = useCallback(() => {
     const g = result.pages[pageIdx];
     const wPt = g?.widthPt || 600, hPt = g?.heightPt || 600;
-    return Math.max(result.renderScale, Math.min(60, Math.sqrt(PIXEL_BUDGET / (wPt * hPt))));
+    return Math.max(pageRenderScale(result, pageIdx), Math.min(60, Math.sqrt(PIXEL_BUDGET / (wPt * hPt))));
   }, [result, pageIdx]);
 
   // after zoom settles, re-render the page sharper (or drop back to the base
@@ -117,20 +122,21 @@ const Preview2D = forwardRef<Preview2DHandle, Props>(function Preview2D(
     if (!result.renderPage) return; // images / no re-render available
     if (hiResTimer.current) clearTimeout(hiResTimer.current);
     hiResTimer.current = setTimeout(async () => {
+      const base = pageRenderScale(result, pageIdx);
       const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
       const onScreenPxPerPt = view.current.z * srcScale.current; // invariant across swaps
-      const target = Math.max(result.renderScale, Math.min(maxScale(), onScreenPxPerPt * dpr));
+      const target = Math.max(base, Math.min(maxScale(), onScreenPxPerPt * dpr));
       const cur = srcScale.current;
       const wantUp = target > cur * 1.25;
-      const wantDown = target < result.renderScale * 1.05 && cur > result.renderScale * 1.05;
+      const wantDown = target < base * 1.05 && cur > base * 1.05;
       if (!wantUp && !wantDown) return;
       const token = ++hiResToken.current;
       if (wantDown) {
-        const f = result.renderScale / srcScale.current;
+        const f = base / srcScale.current;
         view.current.z /= f; view.current.fitZ /= f;
-        srcScale.current = result.renderScale;
+        srcScale.current = base;
         hiResCanvas.current = null;
-        setLoadedScale(result.renderScale);
+        setLoadedScale(base);
         return;
       }
       const canvas = await result.renderPage!(pageIdx, target);
@@ -217,10 +223,11 @@ const Preview2D = forwardRef<Preview2DHandle, Props>(function Preview2D(
 
   // reset to the base preview whenever the file/page changes
   useEffect(() => {
+    const base = pageRenderScale(result, pageIdx);
     hiResToken.current++;          // cancel any in-flight hi-res render
     hiResCanvas.current = null;
-    srcScale.current = result.renderScale;
-    if (loadedScale !== result.renderScale) setLoadedScale(result.renderScale);
+    srcScale.current = base;
+    if (loadedScale !== base) setLoadedScale(base);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [result, pageIdx]);
 
@@ -230,10 +237,11 @@ const Preview2D = forwardRef<Preview2DHandle, Props>(function Preview2D(
     if (!base || !over || !l) return;
     setSmooth(false); // redraws / page changes / hi-res swaps are instant
     const geom = result.pages[pageIdx];
-    const useHi = hiResCanvas.current && Math.abs(loadedScale - result.renderScale) > 1e-6;
+    const pageBase = pageRenderScale(result, pageIdx);
+    const useHi = hiResCanvas.current && Math.abs(loadedScale - pageBase) > 1e-6;
     const raw = useHi ? hiResCanvas.current! : result.previews[pageIdx];
     if (!raw || !geom) return;
-    const scale = useHi ? loadedScale : result.renderScale;
+    const scale = useHi ? loadedScale : pageBase;
     const src = finished ? cropToTrim(raw, geom, scale) : raw;
 
     base.width = src.width; base.height = src.height;

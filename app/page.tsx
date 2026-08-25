@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import type { AnalysisResult, Finding, MarkerKind, Settings } from '@/lib/types';
-import { DEFAULT_SETTINGS, MM_PER_PT } from '@/lib/types';
+import { DEFAULT_SETTINGS, MM_PER_PT, pageRenderScale } from '@/lib/types';
 import { PAPER_PRESETS, paperSizeMm } from '@/lib/presets';
 import type { PrecheckInfo } from '@/lib/estimateSize';
 import ResultsPanel, { worstSeverity } from '@/components/ResultsPanel';
@@ -70,7 +70,7 @@ function croppedToTrim(result: AnalysisResult, pageIdx: number): { canvas: HTMLC
   const src = result.previews[pageIdx];
   const geom = result.pages[pageIdx];
   if (!src || !geom) return null;
-  const s = result.renderScale;
+  const s = pageRenderScale(result, pageIdx);
   const vb = geom.viewBoxPt ?? geom.mediaBoxPt;
   const trim = geom.trimBoxPt;
   if (!trim) {
@@ -116,7 +116,7 @@ function compositedFullPage(
   const ctx = out.getContext('2d')!;
   ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(src, 0, 0, out.width, out.height);
-  renderOverlays(out, { result, settings, pageIdx, ...opts, scaleOverride: result.renderScale * k });
+  renderOverlays(out, { result, settings, pageIdx, ...opts, scaleOverride: pageRenderScale(result, pageIdx) * k });
   const vb = geom.viewBoxPt ?? geom.mediaBoxPt;
   const wMm = (vb[2] - vb[0]) * MM_PER_PT;
   return {
@@ -197,15 +197,15 @@ export default function Home() {
 
   // Page turning (works in both 2D and 3D; also bound to ← / → keys).
   // Wraps around: past the last page → first, before the first → last, so a
-  // 2-page front/back can be flipped repeatedly with one arrow.
+  // 2-page front/back can be flipped repeatedly with one arrow. Navigation is
+  // limited to pages that actually have a rendered preview (long documents are
+  // only analyzed/rendered up to the first N pages).
+  const viewablePages = result ? Math.min(result.pageCount, result.previews.length) : 0;
   const goPage = useCallback((delta: number) => {
-    setResult((r) => {
-      if (r && r.pageCount > 1) {
-        setPageIdx((i) => ((i + delta) % r.pageCount + r.pageCount) % r.pageCount);
-      }
-      return r;
-    });
-  }, []);
+    if (viewablePages > 1) {
+      setPageIdx((i) => ((i + delta) % viewablePages + viewablePages) % viewablePages);
+    }
+  }, [viewablePages]);
 
   // Keyboard shortcuts while viewing results (ignored while typing in a field
   // or when a browser/OS modifier is held).
@@ -258,18 +258,21 @@ export default function Home() {
   }, [phase, tab, facing3d, goPage, scMounted, openShortcuts, closeShortcuts]);
 
   // Locate a finding's spots: jump to the 2D view (and its first page).
+  // Toggling the same finding off just clears the markers — the current
+  // view/page is left as-is.
   const onLocate = useCallback((f: Finding) => {
     if (!f.markerKind) return;
-    setMarkerKind((cur) => (cur === f.markerKind ? null : f.markerKind!));
+    if (markerKind === f.markerKind) {
+      setMarkerKind(null);
+      return;
+    }
+    setMarkerKind(f.markerKind);
     setTab('2d');
-    setResult((r) => {
-      if (r) {
-        const first = r.markers.find((m) => m.kind === f.markerKind);
-        if (first && first.page - 1 < r.previews.length) setPageIdx(first.page - 1);
-      }
-      return r;
-    });
-  }, []);
+    if (result) {
+      const first = result.markers.find((m) => m.kind === f.markerKind);
+      if (first && first.page - 1 < result.previews.length) setPageIdx(first.page - 1);
+    }
+  }, [markerKind, result]);
 
   const runAnalysis = useCallback(async (file: File, s: Settings) => {
     fileRef.current = file;
@@ -379,6 +382,8 @@ export default function Home() {
   // ---- pre-check (size estimate + quick facts) state ----
   const [pre, setPre] = useState<PrecheckInfo | null>(null);
   const [estimating, setEstimating] = useState(false);
+  // bumped by "Use detected settings" to remount the form (resets sticky Custom… modes)
+  const [settingsFormKey, setSettingsFormKey] = useState(0);
 
   // Finished-size estimate for the confirm screen. When the file carries no size
   // metadata (e.g. an image with no embedded DPI), fall back to pixel count ÷ the
@@ -417,8 +422,11 @@ export default function Home() {
       const realBleed = pre.bleedMm * sc;
       d.bleedMm = [0, 2, 3, 5, 10].reduce((a, b) => Math.abs(b - realBleed) < Math.abs(a - realBleed) ? b : a);
     }
-    // embedded image resolution → required resolution (real dpi = file dpi ÷ scale)
-    if (pre.image?.dpi) d.minDpi = Math.round(pre.image.dpi / sc);
+    // embedded image resolution → required resolution (real dpi = file dpi ÷ scale).
+    // Ignore screen-resolution metadata (< 70dpi, e.g. the 72dpi default) — the
+    // same guard the size estimate uses — so applying it can't silently loosen
+    // the required-resolution check.
+    if (pre.image?.dpi && pre.image.dpi >= 70) d.minDpi = Math.round(pre.image.dpi / sc);
     return Object.keys(d).length ? d : null;
   }, [pre, estSize, settings.scale]);
 
@@ -441,6 +449,9 @@ export default function Home() {
   const applyDetected = useCallback(() => {
     if (!detected) return;
     setSettings((s) => ({ ...s, ...detected }));
+    // remount the settings form so sticky "Custom…" selections reset and the
+    // applied values show as their matching presets
+    setSettingsFormKey((k) => k + 1);
   }, [detected]);
 
   const summary = useMemo(() => {
@@ -799,7 +810,7 @@ export default function Home() {
           <div className="card">
             <div className="cardHead">Check settings</div>
             <div className="cardBody">
-              <SettingsForm settings={settings} onChange={set} />
+              <SettingsForm key={settingsFormKey} settings={settings} onChange={set} />
             </div>
           </div>
 

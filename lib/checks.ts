@@ -163,24 +163,28 @@ export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
     }
 
     // raster submission: does pixel size cover trim + bleed at min dpi?
+    // Judged in both orientations (like the PDF trim check): a landscape image
+    // for a portrait order (or vice versa) is placed rotated 90°, so use
+    // whichever orientation yields the better effective resolution.
     const needW = paper.wMm + s.bleedMm * 2;
     const needH = paper.hMm + s.bleedMm * 2;
-    const dpiW = info.width / (needW / 25.4);
-    const dpiH = info.height / (needH / 25.4);
-    const effDpi = Math.min(dpiW, dpiH);
-    const dpiTrim = Math.min(
-      info.width / (paper.wMm / 25.4),
-      info.height / (paper.hMm / 25.4),
-    );
+    const effFor = (iw: number, ih: number, wMm: number, hMm: number) =>
+      Math.min(iw / (wMm / 25.4), ih / (hMm / 25.4));
+    const rotated =
+      effFor(info.height, info.width, needW, needH) > effFor(info.width, info.height, needW, needH);
+    const [iw, ih] = rotated ? [info.height, info.width] : [info.width, info.height];
+    const effDpi = effFor(iw, ih, needW, needH);
+    const dpiTrim = effFor(iw, ih, paper.wMm, paper.hMm);
+    const rotNote = rotated ? ' (judged rotated 90° to match the ordered orientation)' : '';
     if (effDpi >= s.minDpi) {
       out.push(f('img-bleed', 'bleed', 'ok', 'Size (with bleed) OK',
-        `At ${fmt(needW)}×${fmt(needH)}mm including ${s.bleedMm}mm bleed, the effective resolution is ${Math.round(effDpi)}dpi. Lay out with the outer ${s.bleedMm}mm expected to be trimmed off.`));
+        `At ${fmt(needW)}×${fmt(needH)}mm including ${s.bleedMm}mm bleed, the effective resolution is ${Math.round(effDpi)}dpi${rotNote}. Lay out with the outer ${s.bleedMm}mm expected to be trimmed off.`));
     } else if (dpiTrim >= s.minDpi) {
       out.push(f('img-bleed', 'bleed', 'warning', 'No room for bleed',
-        `At the exact finished size the image is ${Math.round(dpiTrim)}dpi, but including ${s.bleedMm}mm bleed it drops to ${Math.round(effDpi)}dpi. Build with bleed included.`));
+        `At the exact finished size the image is ${Math.round(dpiTrim)}dpi, but including ${s.bleedMm}mm bleed it drops to ${Math.round(effDpi)}dpi${rotNote}. Build with bleed included.`));
     } else {
       out.push(f('img-bleed', 'bleed', 'error', 'Size (resolution) too low',
-        `${paper.wMm}×${paper.hMm}mm + bleed needs ${Math.ceil((needW / 25.4) * s.minDpi)}×${Math.ceil((needH / 25.4) * s.minDpi)}px, but this image is only ${info.width}×${info.height}px (effective ${Math.round(effDpi)}dpi).`));
+        `${paper.wMm}×${paper.hMm}mm + bleed needs ${Math.ceil((needW / 25.4) * s.minDpi)}×${Math.ceil((needH / 25.4) * s.minDpi)}px, but this image is only ${info.width}×${info.height}px (effective ${Math.round(effDpi)}dpi${rotNote}).`));
     }
   }
 

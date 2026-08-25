@@ -4,7 +4,7 @@
 // (composited on top of the artwork before texturing the paper mesh).
 
 import type { AnalysisResult, MarkerKind, Settings } from './types.ts';
-import { PT_PER_MM } from './types.ts';
+import { PT_PER_MM, pageRenderScale } from './types.ts';
 import { paperSizeMm } from './presets.ts';
 
 export const MARKER_STYLE: Record<MarkerKind, { color: string; label: string }> = {
@@ -40,7 +40,7 @@ export function renderOverlays(over: HTMLCanvasElement, args: OverlayArgs): void
   const ctx = over.getContext('2d')!;
     const geom = result.pages[pageIdx];
     if (!geom) return;
-    const s = args.scaleOverride ?? result.renderScale;
+    const s = args.scaleOverride ?? pageRenderScale(result, pageIdx);
     const vb = geom.viewBoxPt ?? geom.mediaBoxPt;
 
     // UI scale for overlay text/lines: canvases now render at ~2200px long edge
@@ -137,7 +137,7 @@ export function renderOverlays(over: HTMLCanvasElement, args: OverlayArgs): void
     if (showDims || showBleed) {
       const mm = (pt: number) => {
         const v = pt * (25.4 / 72);
-        return (Math.round(v * 10) / 10).toLocaleString('ja-JP');
+        return (Math.round(v * 10) / 10).toLocaleString('en-US');
       };
       const chip = (x: number, y: number, text: string, color: string) => {
         ctx.font = `bold ${14 * ui}px sans-serif`;

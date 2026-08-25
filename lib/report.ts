@@ -1,10 +1,10 @@
 // Client-side check report (PDF).
 //
-// A REAL text PDF: Latin via Standard-14 Helvetica, Japanese via
-// runtime-subsetted embedded Zen Kaku Gothic New (CID/Identity-H, see
-// lib/fontEmbed.ts) — all text selectable / searchable / sharp at any zoom.
-// If the font can't load, non-Latin lines fall back to lossless inline
-// images; page previews are images either way.
+// A REAL text PDF with runtime-subsetted embedded fonts (CID/Identity-H, see
+// lib/fontEmbed.ts): Latin in Figtree (the app's brand face), Japanese in
+// Zen Kaku Gothic New — all text selectable / searchable / sharp at any zoom.
+// Fallback chain per line: Figtree → Zen Kaku → Standard-14 Helvetica
+// (WinAnsi) → lossless inline image; page previews are images either way.
 //
 // The report is a document to hand to a print shop, so it always renders as a
 // fixed light document independent of the app theme.
@@ -17,11 +17,14 @@ import { paperSizeMm, PAPER_PRESETS } from './presets.ts';
 import { PdfDoc, encodeWinAnsi } from './pdfdoc.ts';
 import { SubsetFont } from './fontEmbed.ts';
 
-// Japanese fonts for real-text PDF embedding (fetched lazily, cached).
-// Zen Kaku Gothic New — SIL OFL, static glyf TTFs (see public/fonts/OFL.txt).
-const JP_FONT_URLS = {
-  regular: '/fonts/ZenKakuGothicNew-Regular.ttf',
-  bold: '/fonts/ZenKakuGothicNew-Bold.ttf',
+// Embedded report fonts (fetched lazily, cached). Both SIL OFL, static glyf
+// TTFs (licenses in public/fonts/): Figtree for Latin (matches the app UI),
+// Zen Kaku Gothic New for Japanese.
+const FONT_URLS = {
+  ltRegular: '/fonts/Figtree-Regular.ttf',
+  ltBold: '/fonts/Figtree-Bold.ttf',
+  jpRegular: '/fonts/ZenKakuGothicNew-Regular.ttf',
+  jpBold: '/fonts/ZenKakuGothicNew-Bold.ttf',
 };
 const jpFontCache = new Map<string, ArrayBuffer | null>();
 async function fetchFont(url: string): Promise<ArrayBuffer | null> {
@@ -75,52 +78,68 @@ class PdfPainter {
   doc = new PdfDoc(A4_W_PT, A4_H_PT, W, H);
   private size = 21;
   private bold = false;
-  private jpReg: SubsetFont | null = null;
+  private ltReg: SubsetFont | null = null;   // Figtree (Latin, brand face)
+  private ltBold: SubsetFont | null = null;
+  private jpReg: SubsetFont | null = null;   // Zen Kaku Gothic New (Japanese)
   private jpBold: SubsetFont | null = null;
 
-  // fetch + parse the Japanese fonts (no-op when unavailable; text() then
-  // falls back to rasterizing non-Latin lines)
-  async loadJapaneseFonts(): Promise<void> {
-    const [reg, bold] = await Promise.all([
-      fetchFont(JP_FONT_URLS.regular), fetchFont(JP_FONT_URLS.bold),
+  // fetch + parse the embedded fonts (Figtree always; JP weights only when the
+  // report contains CJK). Failures are fine — text() falls back per line.
+  async loadFonts(needsCjk: boolean): Promise<void> {
+    const [ltR, ltB, jpR, jpB] = await Promise.all([
+      fetchFont(FONT_URLS.ltRegular),
+      fetchFont(FONT_URLS.ltBold),
+      needsCjk ? fetchFont(FONT_URLS.jpRegular) : Promise.resolve(null),
+      needsCjk ? fetchFont(FONT_URLS.jpBold) : Promise.resolve(null),
     ]);
-    this.jpReg = reg ? SubsetFont.parse(reg) : null;
-    this.jpBold = bold ? SubsetFont.parse(bold) : null;
+    this.ltReg = ltR ? SubsetFont.parse(ltR) : null;
+    this.ltBold = ltB ? SubsetFont.parse(ltB) : null;
+    this.jpReg = jpR ? SubsetFont.parse(jpR) : null;
+    this.jpBold = jpB ? SubsetFont.parse(jpB) : null;
   }
 
-  // attach the built subsets after layout (content ops already reference F3/F4)
+  // attach the built subsets after layout (content ops already reference F3–F6)
   finishFonts(): void {
     if (this.jpReg?.used) this.doc.setCidFont('F3', this.jpReg.build('PFPROA+ZenKakuGothicNew-Regular'));
     if (this.jpBold?.used) this.doc.setCidFont('F4', this.jpBold.build('PFPROB+ZenKakuGothicNew-Bold'));
+    if (this.ltReg?.used) this.doc.setCidFont('F5', this.ltReg.build('PFPROC+Figtree-Regular'));
+    if (this.ltBold?.used) this.doc.setCidFont('F6', this.ltBold.build('PFPROD+Figtree-Bold'));
   }
 
-  private jpFor(bold: boolean): { font: SubsetFont; res: string } | null {
-    if (bold && this.jpBold) return { font: this.jpBold, res: 'F4' };
-    return this.jpReg ? { font: this.jpReg, res: 'F3' } : null;
+  // per-line font resolution: Figtree → Zen Kaku → Helvetica → raster (null)
+  private pickFont(t: string): { font: SubsetFont; res: string } | 'helvetica' | null {
+    const lt = this.bold ? this.ltBold ?? this.ltReg : this.ltReg;
+    if (lt?.covers(t)) return { font: lt, res: lt === this.ltBold ? 'F6' : 'F5' };
+    const jp = this.bold ? this.jpBold ?? this.jpReg : this.jpReg;
+    if (jp?.covers(t)) return { font: jp, res: jp === this.jpBold ? 'F4' : 'F3' };
+    if (encodeWinAnsi(t) !== null) return 'helvetica';
+    return null;
   }
 
   newPage() { this.doc.addPage(); }
   setFont(size: number, bold: boolean) { this.size = size; this.bold = bold; }
   measure(t: string) {
-    // non-Latin lines are typeset with the embedded JP font, so measure with
-    // its actual advance widths (keeps wrapping exact)
-    if (encodeWinAnsi(t) === null) {
-      const m = this.jpFor(this.bold)?.font.measure(t, this.size);
+    // measure with the exact font the line will be typeset in, so wrapping
+    // and right-alignment stay pixel-accurate
+    const pick = this.pickFont(t);
+    if (pick && pick !== 'helvetica') {
+      const m = pick.font.measure(t, this.size);
       if (m != null) return m;
     }
     return measure(t, this.size, this.bold);
   }
   text(t: string, x: number, yBase: number, color: string) {
-    if (this.doc.text(t, x, yBase, this.size, this.bold, color)) return;
-    // outside WinAnsi → embedded subset CID font (real, selectable text)
-    const jp = this.jpFor(this.bold);
-    const gids = jp?.font.encode(t);
-    if (jp && gids) {
-      this.doc.textCid(jp.res, gids, x, yBase, this.size, color);
-      return;
+    const pick = this.pickFont(t);
+    if (pick && pick !== 'helvetica') {
+      const gids = pick.font.encode(t);
+      if (gids) {
+        this.doc.textCid(pick.res, gids, x, yBase, this.size, color);
+        return;
+      }
     }
-    // last resort (font missing / glyph not covered): rasterize just this
-    // line at 3× and place it losslessly at the text position.
+    if (pick === 'helvetica' && this.doc.text(t, x, yBase, this.size, this.bold, color)) return;
+    // last resort (fonts missing / glyph not covered anywhere): rasterize just
+    // this line at 3× and place it losslessly at the text position.
     const wLog = Math.max(1, this.measure(t));
     const hLog = this.size * 1.45;
     const RAS = 3;
@@ -372,7 +391,7 @@ function reportNeedsCjk(result: AnalysisResult): boolean {
 
 export async function downloadReportPdf(result: AnalysisResult, settings: Settings): Promise<void> {
   const p = new PdfPainter();
-  if (reportNeedsCjk(result)) await p.loadJapaneseFonts();
+  await p.loadFonts(reportNeedsCjk(result));
   paintReport(p, result, settings);
   p.finishFonts();
   const pdf = p.doc.build();

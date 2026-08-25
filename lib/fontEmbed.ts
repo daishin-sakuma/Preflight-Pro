@@ -263,6 +263,14 @@ export class SubsetFont {
     return out;
   }
 
+  // can every character of the text be typeset with this font?
+  covers(text: string): boolean {
+    for (const ch of text) {
+      if (this.font.lookup(ch.codePointAt(0)!) === 0) return false;
+    }
+    return true;
+  }
+
   // text width in layout units at the given size; null when a glyph is missing
   measure(text: string, size: number): number | null {
     let units = 0;

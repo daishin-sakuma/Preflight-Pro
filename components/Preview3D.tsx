@@ -13,7 +13,7 @@ import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 
 export interface ViewCommand { cmd: 'front' | 'back' | 'reset'; n: number }
 export type PaperFinish = 'gloss' | 'matte' | 'uncoated';
-export type FoldMode = 'none' | 'half' | 'z';
+export type FoldMode = 'none' | 'half' | 'z' | 'tri';
 
 interface Props {
   front: HTMLCanvasElement;
@@ -80,13 +80,17 @@ function Paper({ front, back, wMm, hMm, finish }: {
 }
 
 // Folded sheet: the front artwork is split into vertical panels linked by a
-// hinge chain with alternating fold directions (2 panels = half fold,
-// 3 panels = Z fold). The back face of each panel shows the corresponding
+// hinge chain. Fold directions alternate for half / Z folds; for the triangle
+// fold (三つ折りを三角柱に閉じる) every hinge folds the same way, so at a 60°
+// opening angle the three equal panels close into a triangular prism with the
+// artwork facing outward. The back face of each panel shows the corresponding
 // region of the back page: viewed from behind, front panel i lines up with
-// back-canvas strip (panels-1-i).
-function FoldedPaper({ front, back, wMm, hMm, panels, angleDeg, finish }: {
+// back-canvas strip (panels-1-i) — for the triangle fold that back face ends
+// up inside the prism, exactly like the physical piece.
+function FoldedPaper({ front, back, wMm, hMm, panels, angleDeg, sameSide, finish }: {
   front: HTMLCanvasElement; back?: HTMLCanvasElement | null;
-  wMm: number; hMm: number; panels: number; angleDeg: number; finish: PaperFinish;
+  wMm: number; hMm: number; panels: number; angleDeg: number;
+  sameSide: boolean; finish: PaperFinish;
 }) {
   const parts = useMemo(() => {
     const strip = (src: HTMLCanvasElement, stripIdx: number) => {
@@ -107,7 +111,9 @@ function FoldedPaper({ front, back, wMm, hMm, panels, angleDeg, finish }: {
   const w = (wMm / long) * 10;
   const h = (hMm / long) * 10;
   const pw = w / panels;
-  const foldRot = ((180 - angleDeg) * Math.PI) / 180;
+  // same-side hinges can't fold past the closed triangle (60° interior angle)
+  const angle = sameSide ? Math.max(60, angleDeg) : angleDeg;
+  const foldRot = ((180 - angle) * Math.PI) / 180;
   const fp = FINISH[finish];
 
   const panelMesh = (i: number) => (
@@ -127,10 +133,12 @@ function FoldedPaper({ front, back, wMm, hMm, panels, angleDeg, finish }: {
   );
 
   // hinge chain: panel i's group sits at the right edge of panel i-1 and
-  // rotates around that vertical edge; directions alternate (half / Z fold)
+  // rotates around that vertical edge. Alternating signs make a half / Z fold;
+  // a constant positive sign bends the chain backwards into the triangle with
+  // the front (+z, artwork) faces on the outside.
   const build = (i: number): React.ReactElement | null => {
     if (i >= panels) return null;
-    const rot = i === 0 ? 0 : (i % 2 === 1 ? -foldRot : foldRot);
+    const rot = i === 0 ? 0 : sameSide ? foldRot : (i % 2 === 1 ? -foldRot : foldRot);
     return (
       <group position={i === 0 ? [-w / 2, 0, 0] : [pw, 0, 0]} rotation={[0, rot, 0]}>
         {panelMesh(i)}
@@ -141,7 +149,7 @@ function FoldedPaper({ front, back, wMm, hMm, panels, angleDeg, finish }: {
 
   // <Center> recenters the folded assembly; key forces a re-measure when the
   // fold shape changes
-  return <Center key={`${panels}:${Math.round(angleDeg)}`}>{build(0)}</Center>;
+  return <Center key={`${panels}:${sameSide}:${Math.round(angle)}`}>{build(0)}</Center>;
 }
 
 const MIN_DIST = 4;
@@ -310,7 +318,8 @@ export default function Preview3D({
         {fold === 'none'
           ? <Paper front={front} back={back} wMm={wMm} hMm={hMm} finish={finish} />
           : <FoldedPaper front={front} back={back} wMm={wMm} hMm={hMm}
-              panels={fold === 'half' ? 2 : 3} angleDeg={foldAngle} finish={finish} />}
+              panels={fold === 'half' ? 2 : 3} angleDeg={foldAngle}
+              sameSide={fold === 'tri'} finish={finish} />}
         <Rig autoRotate={autoRotate} command={command} wMm={wMm} hMm={hMm}
           onFacing={onFacing} onZoomPct={setPct} apiRef={api} />
       </Canvas>

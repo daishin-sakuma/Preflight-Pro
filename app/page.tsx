@@ -1087,13 +1087,21 @@ export default function Home() {
                     <option value="uncoated">Uncoated</option>
                   </select>
                   <select className="ctlSelect" value={fold} title="Fold simulation"
-                    onChange={(e) => setFold(e.target.value as FoldMode)}>
+                    onChange={(e) => {
+                      const v = e.target.value as FoldMode;
+                      setFold(v);
+                      // triangle fold: open at its signature closed-prism shape
+                      // (60° interior angle); other folds keep a readable gap
+                      if (v === 'tri') setFoldAngle(60);
+                      else if (foldAngle < 80) setFoldAngle(100);
+                    }}>
                     <option value="none">No fold</option>
                     <option value="half">Half fold</option>
                     <option value="z">Z fold</option>
+                    <option value="tri">Triangle fold</option>
                   </select>
                   {fold !== 'none' && (
-                    <input className="ctlRange" type="range" min={40} max={180} step={1}
+                    <input className="ctlRange" type="range" min={fold === 'tri' ? 60 : 40} max={180} step={1}
                       value={foldAngle} title={`Fold angle ${foldAngle}°`}
                       aria-label="Fold opening angle"
                       onChange={(e) => setFoldAngle(+e.target.value)} />

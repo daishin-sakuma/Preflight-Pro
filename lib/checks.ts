@@ -229,10 +229,16 @@ export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
   } else if (a.imageInfo) {
     const info = a.imageInfo;
     if (info.colorSpace === 'rgb' || info.colorSpace === 'palette') {
-      const sev: Severity = s.requireCmyk ? 'warning' : 'info';
-      out.push(f('img-rgb', 'color', sev,
-        info.format === 'png' ? 'PNG is RGB' : 'RGB image',
-        `This image is RGB${info.colorSpace === 'palette' ? ' (indexed color)' : ''}. It will be CMYK-converted at the shop, so vivid RGB colors (especially fluorescents) will print duller. For strict color control, submit CMYK PDF/TIFF.`));
+      // honour the RGB-handling setting for raster files too — the severity
+      // must match the setting's label ("Treat as error" / "Warn only")
+      const base = `This image is RGB${info.colorSpace === 'palette' ? ' (indexed color)' : ''}.`;
+      out.push(s.requireCmyk
+        ? f('img-rgb', 'color', 'error',
+          info.format === 'png' ? 'PNG is RGB' : 'RGB image',
+          `${base} The check settings require CMYK submission data. The shop's automatic conversion can shift colors noticeably (especially vivid/fluorescent tones) — convert to CMYK (e.g. a CMYK PDF or TIFF) and resubmit, or switch RGB handling to “Warn only” if your shop accepts RGB.`)
+        : f('img-rgb', 'color', 'warning',
+          info.format === 'png' ? 'PNG is RGB' : 'RGB image',
+          `${base} It will be CMYK-converted at the shop, so vivid RGB colors (especially fluorescents) will print duller. For strict color control, submit CMYK PDF/TIFF.`));
     } else if (info.colorSpace === 'cmyk') {
       out.push(f('img-rgb', 'color', 'ok', 'CMYK image',
         'Detected a CMYK JPEG. The browser preview is an approximation.'));
@@ -285,13 +291,19 @@ export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
         { count: a.content.richBlackText.length, markerKind: mk('rich-black') }));
     }
 
-    // pixel-based approximate TAC (photos etc.)
+    // pixel-based approximate TAC (photos etc.). Judged in two tiers so the
+    // verdict can never contradict the reported maximum: a meaningful area
+    // over the limit warns loudly; isolated over-limit pixels still warn,
+    // with the tiny affected area called out.
     const worstTac = a.tac.reduce((mx, t) => Math.max(mx, t.maxTac), 0);
     const anyOver = a.tac.some((t) => t.overLimitRatio > 0.0005);
     if (anyOver) {
       out.push(f('tac-raster', 'ink', 'warning', 'High-ink areas present (reference)',
         `Based on the rendered result, areas that may exceed ${s.tacLimit}% total ink were detected (est. max ~${worstTac}%). Use the “Ink” overlay in the preview to see where. Note: this is approximated from RGB rendering — verify exact values against the source CMYK.`,
         { pages: a.tac.filter((t) => t.overLimitRatio > 0.0005).map((t) => t.page) }));
+    } else if (worstTac > s.tacLimit) {
+      out.push(f('tac-raster', 'ink', 'warning', `Total ink may exceed ${s.tacLimit}% (est.)`,
+        `The estimated maximum total ink is ~${worstTac}%, above the ${s.tacLimit}% limit, though only in a very small area (under 0.05% of the inked pixels). Approximated from RGB rendering — verify the darkest areas against the source CMYK values.`));
     }
 
     // overprint
@@ -314,13 +326,18 @@ export function runChecks(a: AnalysisResult, s: Settings): Finding[] {
         'No dangerous overprint settings were detected (K100 text is commonly auto-overprinted by the shop).'));
     }
   } else if (a.imageInfo && a.tac.length > 0) {
+    // two-tier judgment (see the PDF branch above): the verdict must never
+    // say "within the limit" while reporting an estimated max above it
     const worstTac = a.tac.reduce((mx, t) => Math.max(mx, t.maxTac), 0);
     const anyOver = a.tac.some((t) => t.overLimitRatio > 0.0005);
     out.push(anyOver
       ? f('tac-raster', 'ink', 'warning', 'High-ink areas present (reference)',
         `Dark areas that may exceed ${s.tacLimit}% total ink after CMYK conversion were detected (est. max ~${worstTac}%). Check with the “Ink” overlay in the preview.`)
-      : f('tac-raster', 'ink', 'ok', `Total ink within ${s.tacLimit}% (est.)`,
-        `Total ink after CMYK conversion is expected to stay within the limit (est. max ~${worstTac}%).`));
+      : worstTac > s.tacLimit
+        ? f('tac-raster', 'ink', 'warning', `Total ink may exceed ${s.tacLimit}% (est.)`,
+          `The estimated maximum total ink after CMYK conversion is ~${worstTac}%, above the ${s.tacLimit}% limit, though only in a very small area (under 0.05% of the inked pixels). Approximated from RGB rendering — verify the darkest areas against the source data.`)
+        : f('tac-raster', 'ink', 'ok', `Total ink within ${s.tacLimit}% (est.)`,
+          `Total ink after CMYK conversion is expected to stay within the limit (est. max ~${worstTac}%).`));
   } else if (a.imageInfo && a.previewUnavailable) {
     out.push(f('tac-raster', 'ink', 'info', 'Ink coverage not evaluated',
       'The pixel-based total-ink (TAC) estimate needs a decoded preview, which was unavailable for this image (see “Other”).'));

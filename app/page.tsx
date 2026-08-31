@@ -468,6 +468,13 @@ export default function Home() {
     setSettingsFormKey((k) => k + 1);
   }, [detected]);
 
+  // settings persist across sessions (by design), so offer a way back to the
+  // documented defaults when past "Use detected settings" / preset picks linger
+  const resetSettings = useCallback(() => {
+    setSettings(DEFAULT_SETTINGS);
+    setSettingsFormKey((k) => k + 1);
+  }, []);
+
   const summary = useMemo(() => {
     if (!result) return null;
     const errs = result.findings.filter((x) => x.severity === 'error').length;
@@ -858,7 +865,14 @@ export default function Home() {
             </div>
 
           <div className="card">
-            <div className="cardHead">Check settings</div>
+            <div className="cardHead">
+              Check settings
+              <button className="btn ghost small" style={{ marginLeft: 'auto' }}
+                title="Restore the default check criteria (settings are otherwise remembered between sessions)"
+                onClick={resetSettings}>
+                Reset to defaults
+              </button>
+            </div>
             <div className="cardBody">
               <SettingsForm key={settingsFormKey} settings={settings} onChange={set} />
             </div>

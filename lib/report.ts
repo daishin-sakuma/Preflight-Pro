@@ -381,7 +381,13 @@ function paintReport(
 
     for (const i of previewIdxs) {
       const comp = previewComposite(result, settings, i);
-      const k = Math.min(CW / comp.width, 620 / comp.height);
+      // a single preview may use the rest of the page (a small image over a
+      // half-empty page looks unfinished); multiple previews keep a ~two-per-
+      // page rhythm with a fixed height cap
+      const maxH = previewIdxs.length === 1
+        ? Math.max(620, (H - M - 40) - y - 64)
+        : 620;
+      const k = Math.min(CW / comp.width, maxH / comp.height);
       const dw = Math.round(comp.width * k), dh = Math.round(comp.height * k);
       ensure(dh + 64);
       const dx = M + Math.round((CW - dw) / 2);
